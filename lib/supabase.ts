@@ -3,12 +3,20 @@ import 'react-native-url-polyfill/auto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Constants from 'expo-constants'
 import { createClient } from '@supabase/supabase-js'
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
+let supabaseUrl = '';
+let supabaseAnonKey = '';
 
-
-
-const supabaseUrl = Constants.expoConfig?.extra?.SUPABASE_URL
-const supabaseAnonKey = Constants.expoConfig?.extra?.SUPABASE_KEY
+if (Platform.OS === 'web') {
+  supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+  supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+} else {
+  const extra = Constants.expoConfig?.extra || Constants.manifest?.extra || {};
+  supabaseUrl = extra.SUPABASE_URL || '';
+  supabaseAnonKey = extra.SUPABASE_ANON_KEY || '';
+}
 
 export const supabase = createClient(supabaseUrl as string, supabaseAnonKey as string, {
   auth: {
