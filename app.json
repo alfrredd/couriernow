@@ -23,6 +23,10 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "SUPABASE_URL": "$SUPABASE_URL",
+      "SUPABASE_KEY": "$SUPABASE_KEY"
     }
   }
 }
