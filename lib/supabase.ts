@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import Constants from 'expo-constants'
 import { createClient } from '@supabase/supabase-js'
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 
 let supabaseUrl = '';
 let supabaseAnonKey = '';
