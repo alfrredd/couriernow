@@ -22,10 +22,15 @@ const NewOrderScreen = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarError, setSnackbarError] = useState(false);
   const [pickup, setPickup] = useState('');
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [delivery, setDelivery] = useState('');
+  const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [items, setItems] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [sending, setSending] = useState(false);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [price, setPrice] = useState<number | null>(null);
+  const [distanceError, setDistanceError] = useState<string | null>(null);
 
   // Error states for validation
   const [pickupError, setPickupError] = useState('');
@@ -34,11 +39,14 @@ const NewOrderScreen = () => {
 
   const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
-  const handleCreateOrder = () => {
+  const handleCreateOrder = async () => {
     let valid = true;
     setPickupError('');
     setDeliveryError('');
     setItemsError('');
+    setDistanceError(null);
+    setDistance(null);
+    setPrice(null);
     if (!pickup.trim()) {
       setPickupError("This field can't be empty");
       valid = false;
@@ -52,10 +60,48 @@ const NewOrderScreen = () => {
       valid = false;
     }
     if (!valid) return;
-    setModalVisible(true);
+
+    // Ensure both coordinates are set
+    if (!pickupCoords || !deliveryCoords) {
+      setDistanceError('Could not get coordinates for both addresses. Please re-select the locations.');
+      return;
+    }
+
+    // Calculate driving distance using Google Maps Directions API (lat/lng)
+    try {
+      const origin = `${pickupCoords.lat},${pickupCoords.lng}`;
+      const destination = `${deliveryCoords.lat},${deliveryCoords.lng}`;
+      const response = await fetch(
+        `https://corsproxy.io/?https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      if (
+        data.routes &&
+        data.routes.length > 0 &&
+        data.routes[0].legs &&
+        data.routes[0].legs.length > 0
+      ) {
+        const meters = data.routes[0].legs[0].distance.value;
+        const km = meters / 1000;
+        setDistance(km);
+        const estPrice = parseFloat((km * 1.21).toFixed(2));
+        setPrice(estPrice);
+        setModalVisible(true);
+      } else {
+        setDistanceError('Could not calculate distance. Please check the addresses.');
+      }
+    } catch (err) {
+      setDistanceError('Error calculating distance.');
+    }
   };
 
   const handleSendOrder = async () => {
+    if (distance == null || price == null) {
+      setSnackbarMessage('Distance or estimated price missing. Please try again.');
+      setSnackbarError(true);
+      setSnackbarVisible(true);
+      return;
+    }
     setSending(true);
     // Get user id
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -74,6 +120,8 @@ const NewOrderScreen = () => {
       delivery_address: delivery,
       customer_id: user.id,
       item_list: itemListArr,
+      distance,
+      est_price: price,
       status: 'Awaiting Courier',
     });
     setSending(false);
@@ -104,6 +152,7 @@ const NewOrderScreen = () => {
         fetchDetails={true}
         onPress={(data, details = null) => {
           setPickup(data.description);
+          setPickupCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
           setPickupError('');
         }}
         query={{
@@ -129,6 +178,7 @@ const NewOrderScreen = () => {
         fetchDetails={true}
         onPress={(data, details = null) => {
           setDelivery(data.description);
+          setDeliveryCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
           setDeliveryError('');
         }}
         query={{
@@ -156,6 +206,9 @@ const NewOrderScreen = () => {
           setItems(text);
           setItemsError('');
         }}
+        autoCorrect={false}
+        autoCapitalize="none"
+        multiline={false}
       />
       {itemsError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{itemsError}</Text> : <View style={{ height: 8 }} />}
 
@@ -172,6 +225,21 @@ const NewOrderScreen = () => {
             <Text style={{ marginBottom: 8 }}><Text style={{ fontWeight: 'bold' }}>Pick Up:</Text> {pickup}</Text>
             <Text style={{ marginBottom: 8 }}><Text style={{ fontWeight: 'bold' }}>Delivery:</Text> {delivery}</Text>
             <Text style={{ marginBottom: 16 }}><Text style={{ fontWeight: 'bold' }}>Items:</Text> {items}</Text>
+            {distanceError ? (
+              <Text style={{ color: '#E53E3E', marginBottom: 12 }}>{distanceError}</Text>
+            ) : (
+              distance !== null && price !== null && (
+                <>
+                  <Text style={{ marginBottom: 8 }}>
+                    <Text style={{ fontWeight: 'bold' }}>Distance:</Text> {distance.toFixed(2)} km
+                  </Text>
+                  <Text style={{ marginBottom: 16 }}>
+                    <Text style={{ fontWeight: 'bold' }}>Estimated Cost:</Text> €{price.toFixed(2)}
+                  </Text>
+                </>
+              )
+            )}
+
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
               <Button title="Edit" color="#A0AEC0" onPress={() => setModalVisible(false)} />
               <View style={{ width: 12 }} />
