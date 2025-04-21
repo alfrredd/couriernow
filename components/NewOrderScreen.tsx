@@ -31,7 +31,8 @@ const NewOrderScreen = () => {
         }}
         query={{
           key: GOOGLE_MAPS_API_KEY,
-          language: 'en',
+          language: 'es',
+          components: 'country:es',
         }}
         styles={{
           textInput: styles.input,
@@ -52,7 +53,8 @@ const NewOrderScreen = () => {
         }}
         query={{
           key: GOOGLE_MAPS_API_KEY,
-          language: 'en',
+          language: 'es',
+          components: 'country:es',
         }}
         styles={{
           textInput: styles.input,
