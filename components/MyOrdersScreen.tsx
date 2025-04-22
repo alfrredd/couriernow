@@ -1,7 +1,8 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 
 const MyOrdersScreen = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -10,28 +11,29 @@ const MyOrdersScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        setLoading(false);
-        setUserId(null);
-        return;
-      }
-      setUserId(user.id);
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('customer_id', user.id)
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        setOrders(data);
-      }
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       setLoading(false);
-    };
-    fetchOrders();
+      setUserId(null);
+      return;
+    }
+    setUserId(user.id);
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('customer_id', user.id)
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      setOrders(data);
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -56,7 +58,17 @@ const MyOrdersScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>My Orders</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+        <Text style={styles.title}>My Orders</Text>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 14, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#EDF2F7' }}
+          onPress={fetchOrders}
+          disabled={loading}
+        >
+          <Ionicons name="refresh" size={20} color={loading ? '#A0AEC0' : '#3182CE'} style={{ marginRight: 4 }} />
+          <Text style={{ color: loading ? '#A0AEC0' : '#3182CE', fontWeight: 'bold', fontSize: 15 }}>Refresh</Text>
+        </TouchableOpacity>
+      </View>
       {loading ? (
         <ActivityIndicator size="large" color="#3182CE" style={{ marginTop: 40 }} />
       ) : orders.length === 0 ? (

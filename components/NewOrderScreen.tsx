@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Snackbar } from 'react-native-paper';
 import { View, Text, StyleSheet, TextInput, Button, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import ClearableTextInput from './ClearableTextInput';
+import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 
@@ -24,6 +26,7 @@ const NewOrderScreen = () => {
   const [pickup, setPickup] = useState('');
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [delivery, setDelivery] = useState('');
+  const pickupRef = React.useRef<any>(null);
   const deliveryRef = React.useRef<any>(null);
   const [userAddresses, setUserAddresses] = useState<{ name: string; address: string }[]>([]);
   const [selectedAddressIdx, setSelectedAddressIdx] = useState<number | null>(null);
@@ -153,6 +156,8 @@ const NewOrderScreen = () => {
       id: orderId,
       pickup_address: pickup,
       delivery_address: delivery,
+      pickup_coord: pickupCoords,
+      delivery_coord: deliveryCoords,
       customer_id: user.id,
       item_list: itemListArr,
       distance,
@@ -177,13 +182,24 @@ const NewOrderScreen = () => {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { justifyContent: 'flex-start' }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.title}>Create New Order</Text>
-      {React.useMemo(() => (
-        <GooglePlacesAutocomplete
+      <View style={{ width: '100%', maxWidth: 400, alignSelf: 'center', marginTop: 24 }}>
+        <Text style={styles.title}>Create New Order</Text>
+        {React.useMemo(() => (
+          <GooglePlacesAutocomplete
+          ref={pickupRef}
           placeholder="Pick Up Address"
+          renderRightButton={() =>
+            pickup.length > 0 ? (
+              <TouchableOpacity onPress={() => { setPickup(''); setPickupCoords(null); if (pickupRef.current) pickupRef.current.setAddressText(''); }} style={{ justifyContent: 'center', alignItems: 'center', height: '100%', paddingRight: 8 }}>
+                <Ionicons name="close-circle" size={22} color="#A0AEC0" />
+              </TouchableOpacity>
+            ) : (
+              <View />
+            )
+          }
           minLength={2}
           fetchDetails={true}
           onPress={(data, details = null) => {
@@ -198,7 +214,8 @@ const NewOrderScreen = () => {
           }}
           styles={{
             textInput: [styles.input, pickupError ? { borderColor: '#E53E3E' } : {}],
-            container: { width: '100%', maxWidth: 400, marginBottom: 0 },
+            container: { position: 'relative', width: '100%', maxWidth: 400, marginBottom: 0 },
+            listView: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
           }}
           textInputProps={{
             value: pickup,
@@ -219,6 +236,15 @@ const NewOrderScreen = () => {
         <GooglePlacesAutocomplete
           ref={deliveryRef}
           placeholder="Delivery Address"
+          renderRightButton={() =>
+            delivery.length > 0 ? (
+              <TouchableOpacity onPress={() => { setDelivery(''); setDeliveryCoords(null); if (deliveryRef.current) deliveryRef.current.setAddressText(''); }} style={{ justifyContent: 'center', alignItems: 'center', height: '100%', paddingRight: 8 }}>
+                <Ionicons name="close-circle" size={22} color="#A0AEC0" />
+              </TouchableOpacity>
+            ) : (
+              <View />
+            )
+          }
           minLength={2}
           fetchDetails={true}
           onPress={(data, details = null) => {
@@ -234,7 +260,8 @@ const NewOrderScreen = () => {
           }}
           styles={{
             textInput: [styles.input, deliveryError ? { borderColor: '#E53E3E' } : {}],
-            container: { width: '100%', maxWidth: 400, marginBottom: 0 },
+            container: { width: '100%', maxWidth: 400, marginBottom: 0, position: 'relative' },
+            listView: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
           }}
           textInputProps={{
             value: delivery,
@@ -250,6 +277,7 @@ const NewOrderScreen = () => {
           }}
         />
       ), [delivery, deliveryError, GOOGLE_MAPS_API_KEY])}
+      {deliveryError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{deliveryError}</Text> : <View style={{ height: 8 }} />}
       {userAddresses.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, marginBottom: 8, maxWidth: 400, alignSelf: 'center' }}>
           {userAddresses.map((addr, idx) => {
@@ -293,9 +321,8 @@ const NewOrderScreen = () => {
           })}
         </View>
       )}
-      {deliveryError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{deliveryError}</Text> : <View style={{ height: 8 }} />}
 
-      <TextInput
+      <ClearableTextInput
         style={[styles.input, itemsError ? { borderColor: '#E53E3E' } : {}]}
         placeholder="Items (comma separated)"
         value={items}
@@ -306,6 +333,7 @@ const NewOrderScreen = () => {
         autoCorrect={false}
         autoCapitalize="none"
         multiline={false}
+        onClear={() => setItems('')}
       />
       {itemsError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{itemsError}</Text> : <View style={{ height: 8 }} />}
 
@@ -324,6 +352,7 @@ const NewOrderScreen = () => {
       >
         <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 17 }}>Create Order</Text>
       </TouchableOpacity>
+    </View>
       <Modal
         visible={modalVisible}
         transparent
