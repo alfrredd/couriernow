@@ -210,7 +210,7 @@ const ProfileScreen = () => {
               </View>
               <TouchableOpacity
                 onPress={() => handleEditAddress(idx)}
-                style={{ backgroundColor: '#A0AEC0', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 8 }}
+                style={{ backgroundColor: '#A0AEC0', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 8, marginLeft: 12 }}
               >
                 <Text style={{ color: '#fff', fontWeight: 'bold' }}>Edit</Text>
               </TouchableOpacity>
@@ -370,10 +370,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 24,
     width: 320,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    boxShadow: '0px 2px 4px rgba(0,0,0,0.2)',
     elevation: 5,
   },
   input: {

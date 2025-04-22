@@ -82,6 +82,9 @@ const NewOrderScreen = () => {
     // Ensure both coordinates are set
     if (!pickupCoords || !deliveryCoords) {
       setDistanceError('Could not get coordinates for both addresses. Please re-select the locations.');
+      setSnackbarMessage('Could not get coordinates for both addresses. Please re-select the locations.');
+      setSnackbarError(true);
+      setSnackbarVisible(true);
       return;
     }
 
@@ -114,11 +117,18 @@ const NewOrderScreen = () => {
         setModalVisible(true);
       } else {
         setDistanceError('Could not calculate distance. Please check the addresses.');
+        setSnackbarMessage('Could not calculate distance. Please check the addresses.');
+        setSnackbarError(true);
+        setSnackbarVisible(true);
       }
     } catch (err) {
       setDistanceError('Error calculating distance.');
+      setSnackbarMessage('Error calculating distance.');
+      setSnackbarError(true);
+      setSnackbarVisible(true);
     }
   };
+
 
   const handleSendOrder = async () => {
     if (distance == null || price == null) {
@@ -171,68 +181,75 @@ const NewOrderScreen = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Text style={styles.title}>Create New Order</Text>
-      <GooglePlacesAutocomplete
-        placeholder="Pick Up Address"
-        minLength={2}
-        fetchDetails={true}
-        onPress={(data, details = null) => {
-          setPickup(data.description);
-          setPickupCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
-          setPickupError('');
-        }}
-        query={{
-          key: GOOGLE_MAPS_API_KEY,
-          language: 'es',
-          components: 'country:es',
-        }}
-        styles={{
-          textInput: [styles.input, pickupError ? { borderColor: '#E53E3E' } : {}],
-          container: { width: '100%', maxWidth: 400, marginBottom: 0 },
-        }}
-        enablePoweredByContainer={false}
-        requestUrl={{
-          useOnPlatform: 'web',
-          url: 'https://corsproxy.io/?https://maps.googleapis.com/maps/api',
-        }}
-      />
+      {React.useMemo(() => (
+        <GooglePlacesAutocomplete
+          placeholder="Pick Up Address"
+          minLength={2}
+          fetchDetails={true}
+          onPress={(data, details = null) => {
+            setPickup(data.description);
+            setPickupCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
+            setPickupError('');
+          }}
+          query={{
+            key: GOOGLE_MAPS_API_KEY,
+            language: 'es',
+            components: 'country:es',
+          }}
+          styles={{
+            textInput: [styles.input, pickupError ? { borderColor: '#E53E3E' } : {}],
+            container: { width: '100%', maxWidth: 400, marginBottom: 0 },
+          }}
+          textInputProps={{
+            value: pickup,
+            onChangeText: text => {
+              setPickup(text);
+            },
+          }}
+          enablePoweredByContainer={false}
+          requestUrl={{
+            useOnPlatform: 'web',
+            url: 'https://corsproxy.io/?https://maps.googleapis.com/maps/api',
+          }}
+        />
+      ), [pickup, pickupError, GOOGLE_MAPS_API_KEY])}
       {pickupError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{pickupError}</Text> : <View style={{ height: 8 }} />}
 
-      <GooglePlacesAutocomplete
-        ref={deliveryRef}
-        placeholder="Delivery Address"
-        minLength={2}
-        fetchDetails={true}
-        onPress={(data, details = null) => {
-          setDelivery(data.description);
-          setDeliveryCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
-          setDeliveryError('');
-          setSelectedAddressIdx(null);
-        }}
-        query={{
-          key: GOOGLE_MAPS_API_KEY,
-          language: 'es',
-          components: 'country:es',
-        }}
-        styles={{
-          textInput: [styles.input, deliveryError ? { borderColor: '#E53E3E' } : {}],
-          container: { width: '100%', maxWidth: 400, marginBottom: 0 },
-        }}
-        textInputProps={{
-          value: delivery,
-          onChangeText: text => {
-            setSelectedAddressIdx(null); // clear chip selection immediately
-            setDelivery(text);
-            setDeliveryCoords(null);
-          },
-        }}
-        enablePoweredByContainer={false}
-        requestUrl={{
-          useOnPlatform: 'web',
-          url: 'https://corsproxy.io/?https://maps.googleapis.com/maps/api',
-        }}
-      />
-      {/* DEBUG: Show selectedAddressIdx */}
-      {/* <Text>Selected: {String(selectedAddressIdx)}</Text> */}
+      {React.useMemo(() => (
+        <GooglePlacesAutocomplete
+          ref={deliveryRef}
+          placeholder="Delivery Address"
+          minLength={2}
+          fetchDetails={true}
+          onPress={(data, details = null) => {
+            setDelivery(data.description);
+            setDeliveryCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
+            setDeliveryError('');
+            setSelectedAddressIdx(null);
+          }}
+          query={{
+            key: GOOGLE_MAPS_API_KEY,
+            language: 'es',
+            components: 'country:es',
+          }}
+          styles={{
+            textInput: [styles.input, deliveryError ? { borderColor: '#E53E3E' } : {}],
+            container: { width: '100%', maxWidth: 400, marginBottom: 0 },
+          }}
+          textInputProps={{
+            value: delivery,
+            onChangeText: text => {
+              setSelectedAddressIdx(null);
+              setDelivery(text);
+            },
+          }}
+          enablePoweredByContainer={false}
+          requestUrl={{
+            useOnPlatform: 'web',
+            url: 'https://corsproxy.io/?https://maps.googleapis.com/maps/api',
+          }}
+        />
+      ), [delivery, deliveryError, GOOGLE_MAPS_API_KEY])}
       {userAddresses.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, marginBottom: 8, maxWidth: 400, alignSelf: 'center' }}>
           {userAddresses.map((addr, idx) => {
@@ -403,10 +420,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 24,
     width: 340,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    boxShadow: '0px 2px 4px rgba(0,0,0,0.2)',
     elevation: 5,
   },
 });
