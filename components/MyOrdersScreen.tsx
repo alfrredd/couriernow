@@ -99,12 +99,38 @@ const MyOrdersScreen = () => {
                 <Text style={{ marginBottom: 4 }}><Text style={{ fontWeight: 'bold' }}>Estimated Price:</Text> €{selectedOrder.est_price ? selectedOrder.est_price.toFixed(2) : '-'}</Text>
                 <Text style={{ marginBottom: 4 }}><Text style={{ fontWeight: 'bold' }}>Status:</Text> {selectedOrder.status}</Text>
                 <Text style={{ marginBottom: 8, color: '#718096', fontSize: 12 }}>Created: {selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString() : '-'}</Text>
-                <TouchableOpacity
-                  style={{ marginTop: 12, alignSelf: 'flex-end', backgroundColor: '#3182CE', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 8 }}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Close</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+                  {selectedOrder.status === 'Awaiting Courier' && (
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#E53E3E', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 8 }}
+                      onPress={async () => {
+                        if (!userId) return;
+                        // Update order status
+                        await supabase.from('orders').update({ status: 'Cancelled by User' }).eq('id', selectedOrder.id);
+                        // Insert into orders_changelog
+                        const { error: changelogError } = await supabase.from('orders_changelog').insert({
+                          order_id: selectedOrder.id,
+                          status: 'Cancelled by User',
+                          message: 'user cancelled',
+                          author_id: userId
+                        });
+                        if (changelogError) {
+                          console.log('orders_changelog insert error:', changelogError);
+                        }
+                        setModalVisible(false);
+                        fetchOrders();
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: 'bold' }}>Cancel Order</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#3182CE', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 8 }}
+                    onPress={() => setModalVisible(false)}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>Close</Text>
+                  </TouchableOpacity>
+                </View>
               </>
             )}
           </View>
