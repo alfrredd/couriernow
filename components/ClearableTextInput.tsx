@@ -29,15 +29,16 @@ const ClearableTextInput: React.FC<ClearableTextInputProps> = ({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        style={[style, { paddingRight: 36 }]}
+        style={[style, { paddingRight: 36, textAlignVertical: 'top' }]}
         autoCorrect={autoCorrect}
         autoCapitalize={autoCapitalize}
-        multiline={multiline}
+        multiline={multiline !== undefined ? multiline : true}
+        numberOfLines={2}
       />
       {value.length > 0 && (
         <TouchableOpacity
           onPress={onClear}
-          style={{ position: 'absolute', right: 8, top: 0, bottom: 0, justifyContent: 'center', height: '100%' }}
+          style={{ position: 'absolute', right: 28, top: 0, bottom: 0, justifyContent: 'center', height: '100%' }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="close-circle" size={22} color="#A0AEC0" />

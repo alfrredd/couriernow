@@ -108,7 +108,23 @@ const NewOrderScreen = () => {
         const meters = data.routes[0].legs[0].distance.value;
         const km = meters / 1000;
         setDistance(km);
-        const estPrice = parseFloat((km * 1.21).toFixed(2));
+        // Fetch pricing rule from Supabase
+        const { data: pricingData, error: pricingError } = await supabase
+          .from('pricing')
+          .select('*')
+          .eq('rule', 1)
+          .single();
+        let estPrice = 0;
+        if (!pricingError && pricingData) {
+          const pk = parseFloat(pricingData.pk);
+          const base = parseFloat(pricingData.base);
+          const multiplier = parseFloat(pricingData.multiplier);
+          const basePrice = Math.max(km * pk, base);
+          estPrice = parseFloat((basePrice * multiplier).toFixed(2));
+        } else {
+          // fallback if pricing fetch fails
+          estPrice = parseFloat((km * 1.21).toFixed(2));
+        }
         setPrice(estPrice);
         // Generate static map URL
         if (pickupCoords && deliveryCoords) {
@@ -215,7 +231,7 @@ const NewOrderScreen = () => {
           styles={{
             textInput: [styles.input, pickupError ? { borderColor: '#E53E3E' } : {}],
             container: { position: 'relative', width: '100%', maxWidth: 400, marginBottom: 0 },
-            listView: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
+            listView: { backgroundColor: '#fff',minHeight: 50, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
           }}
           textInputProps={{
             value: pickup,
@@ -260,8 +276,8 @@ const NewOrderScreen = () => {
           }}
           styles={{
             textInput: [styles.input, deliveryError ? { borderColor: '#E53E3E' } : {}],
-            container: { width: '100%', maxWidth: 400, marginBottom: 0, position: 'relative' },
-            listView: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
+            container: { width: '100%', maxWidth: 400, marginBottom: 0, marginTop: 'inherit', position: 'relative' },
+            listView: { backgroundColor: '#fff', minHeight: 50, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
           }}
           textInputProps={{
             value: delivery,
@@ -323,7 +339,7 @@ const NewOrderScreen = () => {
       )}
 
       <ClearableTextInput
-        style={[styles.input, itemsError ? { borderColor: '#E53E3E' } : {}]}
+        style={[styles.input, itemsError ? { borderColor: '#E53E3E' } : {}, { marginTop: 'inherit'}]}
         placeholder="Items (comma separated)"
         value={items}
         onChangeText={text => {
@@ -332,7 +348,6 @@ const NewOrderScreen = () => {
         }}
         autoCorrect={false}
         autoCapitalize="none"
-        multiline={false}
         onClear={() => setItems('')}
       />
       {itemsError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{itemsError}</Text> : <View style={{ height: 8 }} />}
@@ -374,7 +389,7 @@ const NewOrderScreen = () => {
                     <Text style={{ fontWeight: 'bold' }}>Distance:</Text> {distance.toFixed(2)} km
                   </Text>
                   <Text style={{ marginBottom: 8 }}>
-                    <Text style={{ fontWeight: 'bold' }}>Estimated Cost:</Text> €{price.toFixed(2)}
+                    <Text style={{ fontWeight: 'bold' }}>Estimated Cost:</Text> {price.toFixed(2)} €
                   </Text>
                   {routeMapUrl && (
                     <View style={{ alignItems: 'center', marginBottom: 16 }}>

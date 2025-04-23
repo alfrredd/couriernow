@@ -29,9 +29,9 @@ const Dashboard = () => (
         tabBarInactiveTintColor: 'gray',
       })}
     >
-      <Tab.Screen name="New Order" component={NewOrderScreen} />
-      <Tab.Screen name="My Orders" component={MyOrdersScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="New Order" component={NewOrderScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="My Orders" component={MyOrdersScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   </NavigationContainer>
 );
