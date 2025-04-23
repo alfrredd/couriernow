@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator, ScrollView } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -10,6 +10,64 @@ const MyOrdersScreen = () => {
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  // Notifications state
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifModalVisible, setNotifModalVisible] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+  // Realtime badge state
+  const [hasNewNotification, setHasNewNotification] = useState(false);
+
+  // Realtime notification badge
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel('notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          if (!notifModalVisible) {
+            setHasNewNotification(true);
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, notifModalVisible]);
+
+  // Open/close notification modal handlers
+  const handleOpenNotifications = async () => {
+    setNotifModalVisible(true);
+    setHasNewNotification(false);
+    await fetchNotifications();
+  };
+  const handleCloseNotifications = () => {
+    setNotifModalVisible(false);
+    fetchOrders();
+  };
+
+
+  // Fetch notifications for the user
+  const fetchNotifications = useCallback(async () => {
+    if (!userId) return;
+    setNotifLoading(true);
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      setNotifications(data);
+    }
+    setNotifLoading(false);
+  }, [userId]);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -35,6 +93,13 @@ const MyOrdersScreen = () => {
     fetchOrders();
   }, [fetchOrders]);
 
+  // Refresh orders when tab is focused
+  require('@react-navigation/native').useFocusEffect(
+    require('react').useCallback(() => {
+      fetchOrders();
+    }, [fetchOrders])
+  );
+
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.orderItem}
@@ -58,16 +123,49 @@ const MyOrdersScreen = () => {
 
   return (
     <View style={styles.container}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-        <Text style={styles.title}>My Orders</Text>
-        <TouchableOpacity
-          style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 14, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#EDF2F7' }}
-          onPress={fetchOrders}
-          disabled={loading}
-        >
-          <Ionicons name="refresh" size={20} color={loading ? '#A0AEC0' : '#3182CE'} style={{ marginRight: 4 }} />
-          <Text style={{ color: loading ? '#A0AEC0' : '#3182CE', fontWeight: 'bold', fontSize: 15 }}>Refresh</Text>
-        </TouchableOpacity>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <View style={{ flex: 1, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
+          <Text style={styles.title}>My Orders</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#EDF2F7' }}
+            onPress={fetchOrders}
+            disabled={loading}
+          >
+            <Ionicons name="refresh" size={20} color={loading ? '#A0AEC0' : '#3182CE'} style={{ marginRight: 4 }} />
+            <Text style={{ color: loading ? '#A0AEC0' : '#3182CE', fontWeight: 'bold', fontSize: 15 }}>Refresh</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 24, backgroundColor: '#EDF2F7', marginRight: 8 }}
+            onPress={handleOpenNotifications}
+          >
+            <View style={{ position: 'relative', marginRight: 7 }}>
+              <Ionicons name="notifications-outline" size={22} color="#3182CE" />
+              {hasNewNotification && (
+                <View style={{
+                  position: 'absolute',
+                  right: -2,
+                  top: -2,
+                  backgroundColor: 'red',
+                  borderRadius: 6,
+                  width: 12,
+                  height: 12,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <View style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: 'white',
+                  }} />
+                </View>
+              )}
+            </View>
+            <Text style={{ fontSize: 16, color: '#3182CE', fontWeight: hasNewNotification ? 'bold' : 'normal' }}>Notifications</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {loading ? (
         <ActivityIndicator size="large" color="#3182CE" style={{ marginTop: 40 }} />
@@ -117,6 +215,25 @@ const MyOrdersScreen = () => {
                         if (changelogError) {
                           console.log('orders_changelog insert error:', changelogError);
                         }
+                        // Call Edge Function to notify order status
+                        try {
+                          const { data: { session } } = await supabase.auth.getSession();
+                          await fetch('https://lvshbizilwcxeaojsrvo.functions.supabase.co/notify_order_status', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              ...(session && session.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+                            },
+                            body: JSON.stringify({
+                              order_id: selectedOrder.id,
+                              user_id: userId,
+                              status: 'Cancelled by User',
+                              message: 'Your order status is now: Cancelled by User'
+                            })
+                          });
+                        } catch (e) {
+                          console.log('Edge Function notify_order_status error:', e);
+                        }
                         setModalVisible(false);
                         fetchOrders();
                       }}
@@ -136,7 +253,43 @@ const MyOrdersScreen = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    {/* Notifications Modal */}
+    <Modal
+      visible={notifModalVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={handleCloseNotifications}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { maxHeight: 430, width: 350 }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Notifications</Text>
+            <TouchableOpacity onPress={() => setNotifModalVisible(false)}>
+              <Ionicons name="close-outline" size={24} color="#A0AEC0" />
+            </TouchableOpacity>
+          </View>
+          {notifLoading ? (
+            <ActivityIndicator size="small" color="#3182CE" style={{ marginTop: 20 }} />
+          ) : notifications.length === 0 ? (
+            <Text style={{ color: '#718096', fontSize: 15, textAlign: 'center', marginTop: 18 }}>No notifications yet.</Text>
+          ) : (
+            <FlatList
+              data={notifications}
+              keyExtractor={item => item.id.toString()}
+              renderItem={({ item }) => (
+                <View style={{ marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingBottom: 8 }}>
+                  <Text style={{ fontWeight: 'bold', fontSize: 15, color: '#3182CE' }}>{item.title}</Text>
+                  <Text style={{ color: '#2D3748', fontSize: 14, marginTop: 2 }}>{item.body}</Text>
+                  <Text style={{ color: '#A0AEC0', fontSize: 12, marginTop: 2 }}>{item.created_at ? new Date(item.created_at).toLocaleString() : ''}</Text>
+                </View>
+              )}
+              style={{ marginTop: 4 }}
+            />
+          )}
+        </View>
+      </View>
+    </Modal>
+  </View>
   );
 };
 

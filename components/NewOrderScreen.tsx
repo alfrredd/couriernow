@@ -3,7 +3,7 @@ import { Snackbar } from 'react-native-paper';
 import { View, Text, StyleSheet, TextInput, Button, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import ClearableTextInput from './ClearableTextInput';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
+import { useNavigation } from '@react-navigation/native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 
 import { supabase } from '../lib/supabase';
@@ -30,6 +30,7 @@ const NewOrderScreen = () => {
   const deliveryRef = React.useRef<any>(null);
   const [userAddresses, setUserAddresses] = useState<{ name: string; address: string }[]>([]);
   const [selectedAddressIdx, setSelectedAddressIdx] = useState<number | null>(null);
+  const navigation = useNavigation<any>();
 
   useEffect(() => {
     const fetchAddresses = async () => {
@@ -193,6 +194,8 @@ const NewOrderScreen = () => {
       setPickup('');
       setDelivery('');
       setItems('');
+      // Navigate to My Orders screen
+      navigation.navigate('My Orders');
     }
   };
 

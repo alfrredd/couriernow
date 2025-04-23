@@ -326,18 +326,18 @@ const ProfileScreen = () => {
               maxLength={100}
             />
             {addressError ? <Text style={{ color: '#E53E3E', marginTop: 8 }}>{addressError}</Text> : null}
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 18 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end',alignItems: 'center', marginTop: 18 }}>
               <TouchableOpacity
                 onPress={() => setShowNewModal(false)}
                 style={{ marginRight: 12 }}
               >
-                <Text style={{ color: '#3182CE', fontWeight: 'bold', fontSize: 16 }}>Close</Text>
+                <Text style={{ color: '#3182CE', fontWeight: 'bold', fontSize: 16, textAlignVertical: 'center', textAlign: 'center' }}>Close</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSaveNew}
-                style={{ backgroundColor: '#3182CE', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 8 }}
+                style={{ backgroundColor: '#3182CE', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 8, justifyContent: 'center', alignItems: 'center', height: 40, minWidth: 70 }}
               >
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Save</Text>
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, textAlignVertical: 'center', textAlign: 'center' }}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>

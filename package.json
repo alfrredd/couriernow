@@ -21,6 +21,7 @@
     "couriernow": "file:",
     "expo": "~52.0.42",
     "expo-constants": "^17.0.8",
+    "expo-notifications": "~0.29.14",
     "expo-status-bar": "~2.0.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
@@ -35,6 +36,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~18.3.12",
+    "supabase": "^2.22.4",
     "typescript": "^5.3.3"
   },
   "private": true
