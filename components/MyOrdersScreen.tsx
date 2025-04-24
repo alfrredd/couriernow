@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator, ScrollView, Platform, RefreshControl, StatusBar } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -121,21 +121,26 @@ const MyOrdersScreen = () => {
     </TouchableOpacity>
   );
 
+  // Add extra top padding for mobile
+  const extraTopPadding = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 12 : Platform.OS === 'ios' ? 24 : 0;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: extraTopPadding }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <View style={{ flex: 1, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
           <Text style={styles.title}>My Orders</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#EDF2F7' }}
-            onPress={fetchOrders}
-            disabled={loading}
-          >
-            <Ionicons name="refresh" size={20} color={loading ? '#A0AEC0' : '#3182CE'} style={{ marginRight: 4 }} />
-            <Text style={{ color: loading ? '#A0AEC0' : '#3182CE', fontWeight: 'bold', fontSize: 15 }}>Refresh</Text>
-          </TouchableOpacity>
+          {Platform.OS === 'web' && (
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#EDF2F7' }}
+              onPress={fetchOrders}
+              disabled={loading}
+            >
+              <Ionicons name="refresh" size={20} color={loading ? '#A0AEC0' : '#3182CE'} style={{ marginRight: 4 }} />
+              <Text style={{ color: loading ? '#A0AEC0' : '#3182CE', fontWeight: 'bold', fontSize: 15 }}>Refresh</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 24, backgroundColor: '#EDF2F7', marginRight: 8 }}
             onPress={handleOpenNotifications}
@@ -177,6 +182,18 @@ const MyOrdersScreen = () => {
           keyExtractor={item => item.id}
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: 16 }}
+          ListEmptyComponent={
+            loading ? (
+              <ActivityIndicator size="large" color="#3182CE" style={{ marginTop: 32 }} />
+            ) : (
+              <Text style={{ color: '#A0AEC0', fontSize: 16, textAlign: 'center', marginTop: 24 }}>No orders found.</Text>
+            )
+          }
+          {...(Platform.OS !== 'web' ? {
+            refreshControl: (
+              <RefreshControl refreshing={loading} onRefresh={fetchOrders} colors={["#3182CE"]} />
+            )
+          } : {})}
         />
       )}
       <Modal
@@ -302,7 +319,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 16,
     color: '#2D3748',
     alignSelf: 'center',
   },

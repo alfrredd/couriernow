@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, StatusBar } from 'react-native';
 import { View, Text, StyleSheet, Button, Alert, Modal, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
@@ -165,8 +167,11 @@ const ProfileScreen = () => {
     );
   }
 
+  // Add extra top padding for mobile
+  const extraTopPadding = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 12 : 24;
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={{ alignItems: 'center', marginBottom: 32 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
           <Text style={styles.text}>{userName}</Text>
@@ -178,7 +183,7 @@ const ProfileScreen = () => {
       </View>
       <TouchableOpacity
         onPress={handleLogout}
-        style={{ position: 'absolute', top: 28, right: 24, zIndex: 100 }}
+        style={{ position: 'absolute', top: extraTopPadding, right: 24, zIndex: 100 }}
         accessibilityLabel="Log Out"
       >
         <View style={{ backgroundColor: '#3182CE', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 18 }}>
@@ -343,7 +348,7 @@ const ProfileScreen = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 

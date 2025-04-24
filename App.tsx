@@ -1,4 +1,6 @@
 import 'react-native-url-polyfill/auto'
+import 'react-native-get-random-values'
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import Auth from './components/Auth'
