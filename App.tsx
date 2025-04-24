@@ -6,6 +6,8 @@ import { supabase } from './lib/supabase'
 import Auth from './components/Auth'
 import LandingPage from './components/LandingPage'
 import Dashboard from './components/Dashboard'
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, Alert, Platform } from 'react-native'
 import { Session } from '@supabase/supabase-js'
 import * as Notifications from 'expo-notifications';
@@ -34,6 +36,8 @@ async function registerForPushNotificationsAsync() {
   token = (await Notifications.getExpoPushTokenAsync()).data;
   return token;
 }
+
+const Stack = createStackNavigator();
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -74,22 +78,23 @@ export default function App() {
     };
   }, [session]);
 
-  if (session) {
-    return <Dashboard />;
-  }
-
-  let content;
-  if (!session) {
-    if (showAuth) {
-      content = <Auth />;
-    } else {
-      content = <LandingPage onLoginPress={() => setShowAuth(true)} />;
-    }
-  }
-
   return (
-    <View style={{ flex: 1 }}>
-      {content}
-    </View>
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {!session ? (
+          !showAuth ? (
+            <Stack.Screen name="LandingPage">
+              {() => <LandingPage onLoginPress={() => setShowAuth(true)} />}
+            </Stack.Screen>
+          ) : (
+            <Stack.Screen name="Auth">
+              {() => <Auth setShowAuth={setShowAuth} />}
+            </Stack.Screen>
+          )
+        ) : (
+          <Stack.Screen name="Dashboard" component={Dashboard} />
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }

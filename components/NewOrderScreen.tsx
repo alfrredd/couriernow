@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Snackbar } from 'react-native-paper';
-import { View, Text, StyleSheet, TextInput, Button, Alert, KeyboardAvoidingView, Platform, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Button, Alert, KeyboardAvoidingView, Platform, Image, Dimensions, FlatList, ScrollView } from 'react-native';
+import { TextInput as PaperTextInput, ActivityIndicator } from 'react-native-paper';
 import ClearableTextInput from './ClearableTextInput';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -26,6 +27,48 @@ const NewOrderScreen = () => {
   const [pickup, setPickup] = useState('');
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [delivery, setDelivery] = useState('');
+  const [modalAddressValue, setModalAddressValue] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
+
+  // Fetch address suggestions from Google Places Autocomplete API
+  const fetchAddressSuggestions = async (input: string) => {
+    if (!input || input.length < 2) {
+      setAddressSuggestions([]);
+      setSuggestionError(null);
+      return;
+    }
+    setLoadingSuggestions(true);
+    setSuggestionError(null);
+    try {
+      const isWeb = Platform.OS === 'web';
+      const corsPrefix = isWeb ? 'https://corsproxy.io/?' : '';
+      const url = `${corsPrefix}https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${GOOGLE_MAPS_API_KEY}&language=es&components=country:es`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.status === 'OK') {
+        setAddressSuggestions(data.predictions);
+      } else {
+        setAddressSuggestions([]);
+        setSuggestionError(data.error_message || data.status || 'No suggestions found');
+      }
+    } catch (err: any) {
+      setAddressSuggestions([]);
+      setSuggestionError('Failed to fetch suggestions');
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // Debounce fetching suggestions on input change
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchAddressSuggestions(modalAddressValue);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [modalAddressValue]);
+
   const pickupRef = React.useRef<any>(null);
   const deliveryRef = React.useRef<any>(null);
   const [userAddresses, setUserAddresses] = useState<{ name: string; address: string }[]>([]);
@@ -53,6 +96,19 @@ const NewOrderScreen = () => {
   const [price, setPrice] = useState<number | null>(null);
   const [distanceError, setDistanceError] = useState<string | null>(null);
   const [routeMapUrl, setRouteMapUrl] = useState<string | null>(null);
+
+  // Controls which address field is being edited (null, 'pickup', or 'delivery')
+  const [editingField, setEditingField] = useState<null | 'pickup' | 'delivery'>(null);
+  useEffect(() => {
+    if (editingField === 'pickup') {
+      setModalAddressValue(pickup);
+    } else if (editingField === 'delivery') {
+      setModalAddressValue(delivery);
+    }
+    if (editingField === null) {
+      setModalAddressValue('');
+    }
+  }, [editingField]);
 
   // Error states for validation
   const [pickupError, setPickupError] = useState('');
@@ -96,9 +152,10 @@ const NewOrderScreen = () => {
     try {
       const origin = `${pickupCoords.lat},${pickupCoords.lng}`;
       const destination = `${deliveryCoords.lat},${deliveryCoords.lng}`;
-      const response = await fetch(
-        `https://corsproxy.io/?https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${GOOGLE_MAPS_API_KEY}`
-      );
+      const isWeb = Platform.OS === 'web';
+      const corsPrefix = isWeb ? 'https://corsproxy.io/?' : '';
+      const directionsUrl = `${corsPrefix}https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${GOOGLE_MAPS_API_KEY}`;
+      const response = await fetch(directionsUrl);
       const data = await response.json();
       if (
         data.routes &&
@@ -204,198 +261,482 @@ const NewOrderScreen = () => {
       style={[styles.container, { justifyContent: 'flex-start' }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View
+      {Platform.OS === 'web' ? (
+        <View
         style={[
           { width: '100%', maxWidth: 400, alignSelf: 'center', marginTop: 24 },
           Platform.OS !== 'web' && {
             flex: 1,
             flexDirection: 'column',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-start',
             gap: 18,
             minHeight: 320,
           },
         ]}
       >
         <Text style={styles.title}>Create New Order</Text>
-        {React.useMemo(() => (
-          <GooglePlacesAutocomplete
-          ref={pickupRef}
-          placeholder="Pick Up Address"
-          renderRightButton={() =>
-            pickup.length > 0 ? (
-              <TouchableOpacity onPress={() => { setPickup(''); setPickupCoords(null); if (pickupRef.current) pickupRef.current.setAddressText(''); }} style={{ justifyContent: 'center', alignItems: 'center', height: '100%', paddingRight: 8 }}>
-                <Ionicons name="close-circle" size={22} color="#A0AEC0" />
-              </TouchableOpacity>
-            ) : (
-              <View />
-            )
-          }
-          minLength={2}
-          fetchDetails={true}
-          onPress={(data, details = null) => {
-            setPickup(data.description);
-            setPickupCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
-            setPickupError('');
+        {/* Pickup Field (read-only) */}
+        <TouchableOpacity
+          style={[
+            styles.input,
+            { justifyContent: 'center', backgroundColor: '#EDF2F7', marginBottom: 4 },
+            pickupError ? { borderColor: '#E53E3E' } : {},
+          ]}
+          activeOpacity={0.7}
+          onPress={() => {
+            setEditingField('pickup');
           }}
-          query={{
-            key: GOOGLE_MAPS_API_KEY,
-            language: 'es',
-            components: 'country:es',
-          }}
-          styles={{
-            textInput: [styles.input, pickupError ? { borderColor: '#E53E3E' } : {}],
-            container: [
-              { width: '100%', maxWidth: 400 },
-              Platform.OS !== 'web' && { flex: 1, marginBottom: 12 },
-            ],
-            listView: [
-  { backgroundColor: '#fff', minHeight: 50, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5, zIndex: 10 },
-  Platform.OS !== 'web' && { maxHeight: Dimensions.get('window').height * 0.5 },
-  Platform.OS === 'web' && { maxHeight: 220 }
-],
-          }}
-          textInputProps={{
-            value: pickup,
-            onChangeText: text => {
-              setPickup(text);
-            },
-          }}
-          enablePoweredByContainer={false}
-          requestUrl={{
-            useOnPlatform: 'web',
-            url: 'https://corsproxy.io/?https://maps.googleapis.com/maps/api',
-          }}
-        />
-      ), [pickup, pickupError, GOOGLE_MAPS_API_KEY])}
-      {pickupError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{pickupError}</Text> : <View style={{ height: 8 }} />}
+        >
+          <Text style={{ color: pickup ? '#2D3748' : '#A0AEC0', fontSize: 16 }}>
+            {pickup || 'Pick Up Address'}
+          </Text>
+          {pickup && (
+            <TouchableOpacity
+              onPress={() => { setPickup(''); setPickupCoords(null); }}
+              style={{ position: 'absolute', right: 8, top: 0, bottom: 0, justifyContent: 'center' }}
+            >
+              <Ionicons name="close-circle" size={22} color="#A0AEC0" />
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+        {pickupError ? <Text style={{ color: '#E53E3E', marginTop: 2, marginLeft: 4 }}>{pickupError}</Text> : <View style={{ height: 4 }}><Text>{' '}</Text></View>}
 
-      {React.useMemo(() => (
-        <GooglePlacesAutocomplete
-          ref={deliveryRef}
-          placeholder="Delivery Address"
-          renderRightButton={() =>
-            delivery.length > 0 ? (
-              <TouchableOpacity onPress={() => { setDelivery(''); setDeliveryCoords(null); if (deliveryRef.current) deliveryRef.current.setAddressText(''); }} style={{ justifyContent: 'center', alignItems: 'center', height: '100%', paddingRight: 8 }}>
-                <Ionicons name="close-circle" size={22} color="#A0AEC0" />
-              </TouchableOpacity>
-            ) : (
-              <View />
-            )
-          }
-          minLength={2}
-          fetchDetails={true}
-          onPress={(data, details = null) => {
-            setDelivery(data.description);
-            setDeliveryCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
-            setDeliveryError('');
-            setSelectedAddressIdx(null);
+        {/* Delivery Field (read-only) */}
+        <TouchableOpacity
+          style={[
+            styles.input,
+            { justifyContent: 'center', backgroundColor: '#EDF2F7', marginBottom: 4 },
+            deliveryError ? { borderColor: '#E53E3E' } : {},
+          ]}
+          activeOpacity={0.7}
+          onPress={() => {
+            setEditingField('delivery');
           }}
-          query={{
-            key: GOOGLE_MAPS_API_KEY,
-            language: 'es',
-            components: 'country:es',
-          }}
-          styles={{
-            textInput: [styles.input, deliveryError ? { borderColor: '#E53E3E' } : {}],
-            container: [
-              { width: '100%', maxWidth: 400 },
-              Platform.OS !== 'web' && { flex: 1, marginBottom: 12 },
-            ],
-            listView: [
-              { backgroundColor: '#fff', minHeight: 50, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5, zIndex: 10 },
-              Platform.OS !== 'web' && { maxHeight: Dimensions.get('window').height * 0.5 },
-              Platform.OS === 'web' && { maxHeight: 220 }
-            ],
-          }}
-          textInputProps={{
-            value: delivery,
-            onChangeText: text => {
-              setSelectedAddressIdx(null);
-              setDelivery(text);
-            },
-          }}
-          enablePoweredByContainer={false}
-          requestUrl={{
-            useOnPlatform: 'web',
-            url: 'https://corsproxy.io/?https://maps.googleapis.com/maps/api',
-          }}
-        />
-      ), [delivery, deliveryError, GOOGLE_MAPS_API_KEY])}
-      {deliveryError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{deliveryError}</Text> : <View style={{ height: 8 }} />}
-      {userAddresses.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, marginBottom: 8, maxWidth: 400, alignSelf: 'center' }}>
-          {userAddresses.map((addr, idx) => {
-            const isSelected = selectedAddressIdx === idx;
-            return (
-              <TouchableOpacity
-                key={idx}
-                onPress={() => {
-                  if (isSelected) {
-                    setSelectedAddressIdx(null);
-                    setDelivery('');
-                    setDeliveryCoords(null);
-                    if (deliveryRef.current) {
-                      deliveryRef.current.setAddressText('');
-                    }
-                  } else {
-                    setSelectedAddressIdx(idx);
-                    setDelivery(addr.address);
-                    setDeliveryCoords(null);
-                    if (deliveryRef.current) {
-                      deliveryRef.current.setAddressText(addr.address);
-                    }
-                  }
-                }}
-                style={{
-                  backgroundColor: isSelected ? '#3182CE' : '#E2E8F0',
-                  borderRadius: 18,
-                  paddingHorizontal: 14,
-                  paddingVertical: 6,
-                  marginRight: 8,
-                  marginBottom: 8,
-                  borderWidth: 1,
-                  borderColor: isSelected ? '#3182CE' : '#CBD5E0',
-                  minWidth: 60,
-                  alignItems: 'center',
-                }}
+        >
+          <Text style={{ color: delivery ? '#2D3748' : '#A0AEC0', fontSize: 16 }}>
+            {delivery || 'Delivery Address'}
+          </Text>
+          {delivery && (
+            <TouchableOpacity
+              onPress={() => { setDelivery(''); setDeliveryCoords(null); setSelectedAddressIdx(null); }}
+              style={{ position: 'absolute', right: 8, top: 0, bottom: 0, justifyContent: 'center' }}
+            >
+              <Ionicons name="close-circle" size={22} color="#A0AEC0" />
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+        {deliveryError ? <Text style={{ color: '#E53E3E', marginTop: 2, marginLeft: 4 }}>{deliveryError}</Text> : <View style={{ height: 4 }}><Text>{' '}</Text></View>}
+
+        {/* Address Search Modal */}
+        <Modal
+          visible={!!editingField}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setEditingField(null)}
+        >
+          <View style={[styles.modalOverlay, Platform.OS !== 'web' ? { justifyContent: 'flex-start', paddingTop: 48 } : {}]}>
+            <View style={[
+              styles.modalContent,
+              Platform.OS !== 'web'
+                ? { width: '100%', alignSelf: 'flex-start', minHeight: 300, maxWidth: '100%' }
+                : { width: '90%', maxWidth: 400 },
+              { padding: 0, alignItems: 'stretch' },
+            ]}> 
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderColor: '#E2E8F0' }}>
+                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>
+                  {editingField === 'pickup' ? 'Select Pick Up Address' : 'Select Delivery Address'}
+                </Text>
+                <TouchableOpacity onPress={() => setEditingField(null)}>
+                  <Ionicons name="close-outline" size={28} color="#A0AEC0" />
+                </TouchableOpacity>
+              </View>
+              <KeyboardAvoidingView
+                style={{ flex: 1 }}
               >
-                <Text style={{ color: isSelected ? '#fff' : '#2D3748', fontWeight: 'bold', fontSize: 15 }}>{addr.name}</Text>
-              </TouchableOpacity>
-            );
-          })}
+                <PaperTextInput
+                value={modalAddressValue}
+                onChangeText={setModalAddressValue}
+                placeholder="Full Address"
+                style={[styles.input, { margin: 16, marginBottom: 0, width: '90%', padding: 0, }]}
+                right={modalAddressValue ? <PaperTextInput.Icon icon="close" onPress={() => setModalAddressValue('')} /> : null}
+                autoFocus={true}
+                underlineColor="rgb(49, 130, 206)"
+                activeUnderlineColor="rgb(49, 130, 206)"
+                activeOutlineColor="rgb(49, 130, 206)"
+                />
+                {loadingSuggestions && (
+                  <ActivityIndicator style={{ marginTop: 8, alignSelf: 'center' }} />
+                )}
+                {suggestionError && (
+                  <Text style={{ color: '#E53E3E', marginTop: 8, alignSelf: 'center' }}>{suggestionError}</Text>
+                )}
+                <FlatList
+                  data={addressSuggestions}
+                  keyExtractor={(item: { place_id: string }) => item.place_id}
+                  style={{ backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 8, maxHeight: 220, borderWidth: 1, borderColor: '#CBD5E0', marginTop: 4 }}
+                  renderItem={({ item }: { item: { description: string; place_id: string } }) => (
+                    <TouchableOpacity
+                    style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}
+                    onPress={async () => {
+                      // Fetch place details for coordinates
+                      try {
+                        setLoadingSuggestions(true);
+                        const isWeb = Platform.OS === 'web';
+                        const corsPrefix = isWeb ? 'https://corsproxy.io/?' : '';
+                        const detailsUrl = `${corsPrefix}https://maps.googleapis.com/maps/api/place/details/json?place_id=${item.place_id}&key=${GOOGLE_MAPS_API_KEY}&language=es`;
+                        const detailsRes = await fetch(detailsUrl);
+                        const detailsData = await detailsRes.json();
+                        const details = detailsData.result;
+                        if (editingField === 'pickup') {
+                          setPickup(item.description);
+                          setPickupCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
+                          setPickupError('');
+                        } else if (editingField === 'delivery') {
+                          setDelivery(item.description);
+                          setDeliveryCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
+                          setDeliveryError('');
+                          setSelectedAddressIdx(null);
+                        }
+                        setEditingField(null);
+                        setModalAddressValue('');
+                        setAddressSuggestions([]);
+                      } catch (err) {
+                        setSuggestionError('Failed to fetch address details');
+                      } finally {
+                        setLoadingSuggestions(false);
+                      }
+                    }}
+                  >
+                    <Text style={{ fontSize: 16 }}>{item.description}</Text>
+                  </TouchableOpacity>
+                )}
+              ListEmptyComponent={
+                !loadingSuggestions && modalAddressValue.length > 1 && !suggestionError
+                  ? <Text style={{ textAlign: 'center', margin: 12, color: '#A0AEC0' }}>No suggestions</Text>
+                  : null
+                }
+                />
+              </KeyboardAvoidingView>
+            </View>
+          </View>
+        </Modal>
+
+        {userAddresses.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, marginBottom: 8, maxWidth: 400, alignSelf: 'center' }}>
+            {userAddresses.map((addr, idx) => {
+              const isSelected = selectedAddressIdx === idx;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => {
+                    if (isSelected) {
+                      setSelectedAddressIdx(null);
+                      setDelivery('');
+                      setDeliveryCoords(null);
+                      if (deliveryRef.current) {
+                        deliveryRef.current.setAddressText('');
+                      }
+                    } else {
+                      setSelectedAddressIdx(idx);
+                      setDelivery(addr.address);
+                      setDeliveryCoords(null);
+                      if (deliveryRef.current) {
+                        deliveryRef.current.setAddressText(addr.address);
+                      }
+                    }
+                  }}
+                  style={{
+                    backgroundColor: isSelected ? '#3182CE' : '#E2E8F0',
+                    borderRadius: 18,
+                    paddingHorizontal: 14,
+                    paddingVertical: 6,
+                    marginRight: 8,
+                    marginBottom: 8,
+                    borderWidth: 1,
+                    borderColor: isSelected ? '#3182CE' : '#CBD5E0',
+                    minWidth: 60,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: isSelected ? '#fff' : '#2D3748', fontWeight: 'bold', fontSize: 15 }}>{addr.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        <ClearableTextInput
+          style={[styles.input, itemsError ? { borderColor: '#E53E3E' } : {}]}
+          placeholder="Items (comma separated)"
+          value={items}
+          onChangeText={text => {
+            setItems(text);
+            setItemsError('');
+          }}
+          autoCorrect={false}
+          autoCapitalize="none"
+          onClear={() => setItems('')}
+        />
+        {itemsError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{itemsError}</Text> : <View style={{ height: 8 }}><Text>{' '}</Text></View>}
+
+        <TouchableOpacity
+          onPress={handleCreateOrder}
+          style={{
+            backgroundColor: '#3182CE',
+            borderRadius: 24,
+            paddingVertical: 12,
+            paddingHorizontal: 28,
+            alignItems: 'center',
+            marginVertical: 10,
+            alignSelf: 'center',
+          }}
+          accessibilityLabel="Create Order"
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 17 }}>Create Order</Text>
+        </TouchableOpacity>
         </View>
-      )}
-
-      <ClearableTextInput
-        style={[styles.input, itemsError ? { borderColor: '#E53E3E' } : {}]}
-        placeholder="Items (comma separated)"
-        value={items}
-        onChangeText={text => {
-          setItems(text);
-          setItemsError('');
-        }}
-        autoCorrect={false}
-        autoCapitalize="none"
-        onClear={() => setItems('')}
-      />
-      {itemsError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{itemsError}</Text> : <View style={{ height: 8 }} />}
-
-      <TouchableOpacity
-        onPress={handleCreateOrder}
-        style={{
-          backgroundColor: '#3182CE',
-          borderRadius: 24,
-          paddingVertical: 12,
-          paddingHorizontal: 28,
+      ) : (
+        <ScrollView
+        contentContainerStyle={{
           alignItems: 'center',
-          marginVertical: 10,
-          alignSelf: 'center',
+          paddingTop: 24,
+          paddingBottom: 32,
+          minHeight: 320,
+          flexGrow: 1,
         }}
-        accessibilityLabel="Create Order"
-      >
-        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 17 }}>Create Order</Text>
-      </TouchableOpacity>
-    </View>
+        keyboardShouldPersistTaps="handled"
+        >
+        <View
+          style={{
+            flex: 1,
+            alignSelf: 'stretch',
+            maxWidth: '100%',
+            paddingHorizontal: 0,
+          }}
+        >
+        <Text style={styles.title}>Create New Order</Text>
+        {/* Pickup Field (read-only) */}
+        <TouchableOpacity
+          style={[
+            styles.input,
+            { justifyContent: 'center', backgroundColor: '#EDF2F7', marginBottom: 4 },
+            pickupError ? { borderColor: '#E53E3E' } : {},
+          ]}
+          activeOpacity={0.7}
+          onPress={() => {
+            setEditingField('pickup');
+          }}
+        >
+          <Text style={{ color: pickup ? '#2D3748' : '#A0AEC0', fontSize: 16 }}>
+            {pickup || 'Pick Up Address'}
+          </Text>
+          {pickup && (
+            <TouchableOpacity
+              onPress={() => { setPickup(''); setPickupCoords(null); }}
+              style={{ position: 'absolute', right: 8, top: 0, bottom: 0, justifyContent: 'center' }}
+            >
+              <Ionicons name="close-circle" size={22} color="#A0AEC0" />
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+        {pickupError ? <Text style={{ color: '#E53E3E', marginTop: 2, marginLeft: 4 }}>{pickupError}</Text> : <View style={{ height: 4 }}><Text>{' '}</Text></View>}
+
+        {/* Delivery Field (read-only) */}
+        <TouchableOpacity
+          style={[
+            styles.input,
+            { justifyContent: 'center', backgroundColor: '#EDF2F7', marginBottom: 4 },
+            deliveryError ? { borderColor: '#E53E3E' } : {},
+          ]}
+          activeOpacity={0.7}
+          onPress={() => {
+            setEditingField('delivery');
+          }}
+        >
+          <Text style={{ color: delivery ? '#2D3748' : '#A0AEC0', fontSize: 16 }}>
+            {delivery || 'Delivery Address'}
+          </Text>
+          {delivery && (
+            <TouchableOpacity
+              onPress={() => { setDelivery(''); setDeliveryCoords(null); setSelectedAddressIdx(null); }}
+              style={{ position: 'absolute', right: 8, top: 0, bottom: 0, justifyContent: 'center' }}
+            >
+              <Ionicons name="close-circle" size={22} color="#A0AEC0" />
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+        {deliveryError ? <Text style={{ color: '#E53E3E', marginTop: 2, marginLeft: 4 }}>{deliveryError}</Text> : <View style={{ height: 4 }}><Text>{' '}</Text></View>}
+
+        {/* Address Search Modal */}
+        <Modal
+          visible={!!editingField}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setEditingField(null)}
+        >
+          <View style={[styles.modalOverlay, { justifyContent: 'flex-start', paddingTop: 48 }]}>
+            <View style={[
+              styles.modalContent,
+              { width: '100%', alignSelf: 'flex-start', minHeight: 300, maxWidth: '100%' },
+              { padding: 0, alignItems: 'stretch' },
+            ]}> 
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderColor: '#E2E8F0' }}>
+                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>
+                  {editingField === 'pickup' ? 'Select Pick Up Address' : 'Select Delivery Address'}
+                </Text>
+                <TouchableOpacity onPress={() => setEditingField(null)}>
+                  <Ionicons name="close-outline" size={28} color="#A0AEC0" />
+                </TouchableOpacity>
+              </View>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+              >
+                <PaperTextInput
+                value={modalAddressValue}
+                onChangeText={setModalAddressValue}
+                placeholder="Full Address"
+                style={[styles.input, { margin: 16, marginBottom: 0, width: '90%', padding: 0, }]}
+                right={modalAddressValue ? <PaperTextInput.Icon icon="close" onPress={() => setModalAddressValue('')} /> : null}
+                autoFocus={true}
+                underlineColor="rgb(49, 130, 206)"
+                activeUnderlineColor="rgb(49, 130, 206)"
+                activeOutlineColor="rgb(49, 130, 206)"
+                />
+                {loadingSuggestions && (
+                  <ActivityIndicator style={{ marginTop: 8, alignSelf: 'center' }} />
+                )}
+                {suggestionError && (
+                  <Text style={{ color: '#E53E3E', marginTop: 8, alignSelf: 'center' }}>{suggestionError}</Text>
+                )}
+                <FlatList
+                  data={addressSuggestions}
+                  keyExtractor={(item: { place_id: string }) => item.place_id}
+                  style={{ backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 8, maxHeight: 220, borderWidth: 1, borderColor: '#CBD5E0', marginTop: 4 }}
+                  renderItem={({ item }: { item: { description: string; place_id: string } }) => (
+                    <TouchableOpacity
+                    style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}
+                    onPress={async () => {
+                      // Fetch place details for coordinates
+                      try {
+                        setLoadingSuggestions(true);
+                        const isWeb = Platform.OS === 'web';
+                        const corsPrefix = isWeb ? 'https://corsproxy.io/?' : '';
+                        const detailsUrl = `${corsPrefix}https://maps.googleapis.com/maps/api/place/details/json?place_id=${item.place_id}&key=${GOOGLE_MAPS_API_KEY}&language=es`;
+                        const detailsRes = await fetch(detailsUrl);
+                        const detailsData = await detailsRes.json();
+                        const details = detailsData.result;
+                        if (editingField === 'pickup') {
+                          setPickup(item.description);
+                          setPickupCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
+                          setPickupError('');
+                        } else if (editingField === 'delivery') {
+                          setDelivery(item.description);
+                          setDeliveryCoords(details && details.geometry && details.geometry.location ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng } : null);
+                          setDeliveryError('');
+                          setSelectedAddressIdx(null);
+                        }
+                        setEditingField(null);
+                        setModalAddressValue('');
+                        setAddressSuggestions([]);
+                      } catch (err) {
+                        setSuggestionError('Failed to fetch address details');
+                      } finally {
+                        setLoadingSuggestions(false);
+                      }
+                    }}
+                  >
+                    <Text style={{ fontSize: 16 }}>{item.description}</Text>
+                  </TouchableOpacity>
+                )}
+              ListEmptyComponent={
+                !loadingSuggestions && modalAddressValue.length > 1 && !suggestionError
+                  ? <Text style={{ textAlign: 'center', margin: 12, color: '#A0AEC0' }}>No suggestions</Text>
+                  : null
+                }
+                />
+              </KeyboardAvoidingView>
+            </View>
+          </View>
+        </Modal>
+
+        {userAddresses.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, marginBottom: 8, maxWidth: 400, alignSelf: 'center' }}>
+            {userAddresses.map((addr, idx) => {
+              const isSelected = selectedAddressIdx === idx;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => {
+                    if (isSelected) {
+                      setSelectedAddressIdx(null);
+                      setDelivery('');
+                      setDeliveryCoords(null);
+                      if (deliveryRef.current) {
+                        deliveryRef.current.setAddressText('');
+                      }
+                    } else {
+                      setSelectedAddressIdx(idx);
+                      setDelivery(addr.address);
+                      setDeliveryCoords(null);
+                      if (deliveryRef.current) {
+                        deliveryRef.current.setAddressText(addr.address);
+                      }
+                    }
+                  }}
+                  style={{
+                    backgroundColor: isSelected ? '#3182CE' : '#E2E8F0',
+                    borderRadius: 18,
+                    paddingHorizontal: 14,
+                    paddingVertical: 6,
+                    marginRight: 8,
+                    marginBottom: 8,
+                    borderWidth: 1,
+                    borderColor: isSelected ? '#3182CE' : '#CBD5E0',
+                    minWidth: 60,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: isSelected ? '#fff' : '#2D3748', fontWeight: 'bold', fontSize: 15 }}>{addr.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        <ClearableTextInput
+          style={[styles.input, itemsError ? { borderColor: '#E53E3E' } : {}]}
+          placeholder="Items (comma separated)"
+          value={items}
+          onChangeText={text => {
+            setItems(text);
+            setItemsError('');
+          }}
+          autoCorrect={false}
+          autoCapitalize="none"
+          onClear={() => setItems('')}
+        />
+        {itemsError ? <Text style={{ color: '#E53E3E', marginBottom: 8, marginLeft: 4 }}>{itemsError}</Text> : <View style={{ height: 8 }}><Text>{' '}</Text></View>}
+
+        <TouchableOpacity
+          onPress={handleCreateOrder}
+          style={{
+            backgroundColor: '#3182CE',
+            borderRadius: 24,
+            paddingVertical: 12,
+            paddingHorizontal: 28,
+            alignItems: 'center',
+            marginVertical: 10,
+            alignSelf: 'center',
+          }}
+          accessibilityLabel="Create Order"
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 17 }}>Create Order</Text>
+        </TouchableOpacity>
+
+        </View>
+        </ScrollView>
+      )}
       <Modal
         visible={modalVisible}
         transparent

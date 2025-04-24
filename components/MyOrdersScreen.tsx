@@ -126,7 +126,7 @@ const MyOrdersScreen = () => {
 
   return (
     <View style={[styles.container, { paddingTop: extraTopPadding }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, ...(Platform.OS === 'web' ? { marginTop: 16 } : {}) }}>
         <View style={{ flex: 1, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
           <Text style={styles.title}>My Orders</Text>
         </View>

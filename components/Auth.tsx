@@ -1,9 +1,29 @@
-import React, { useState } from 'react'
-import { Alert, StyleSheet, View } from 'react-native'
+import React, { useState, useEffect } from 'react'
+import { Alert, StyleSheet, View, Text, BackHandler, Platform, TouchableOpacity } from 'react-native'
+import { useNavigation, NavigationProp } from '@react-navigation/native'
 import { supabase } from '../lib/supabase'
 import { Button, Input } from '@rneui/themed'
 
-export default function Auth() {
+type RootStackParamList = {
+  Dashboard: undefined;
+  // add other routes here if needed
+};
+
+type AuthProps = {
+  setShowAuth: (show: boolean) => void;
+};
+
+export default function Auth({ setShowAuth }: AuthProps) {
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      const backAction = () => {
+        setShowAuth(false);
+        return true;
+      };
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+      return () => backHandler.remove();
+    }
+  }, [setShowAuth]);
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -17,6 +37,19 @@ export default function Auth() {
 
   async function signInWithEmail() {
     setShowName(false);
+    // Simple required field checks
+    let valid = true;
+    setEmailError('');
+    setPasswordError('');
+    if (!email.trim()) {
+      setEmailError('Email is required.');
+      valid = false;
+    }
+    if (!password) {
+      setPasswordError('Password is required.');
+      valid = false;
+    }
+    if (!valid) return;
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({
       email: email,
@@ -85,6 +118,12 @@ export default function Auth() {
 
   return (
     <View style={styles.container}>
+      {Platform.OS === 'web' && (
+        <TouchableOpacity style={styles.backArrow} onPress={() => setShowAuth(false)}>
+          <Text style={styles.backArrowText}>←</Text>
+        </TouchableOpacity>
+      )}
+      <Text style={styles.title}>CourierNow Account</Text>
       <View style={[styles.verticallySpaced, styles.mt20]}>
         <Input
           label="Email"
@@ -136,15 +175,42 @@ export default function Auth() {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 40,
-    padding: 12,
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#fff',
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    marginBottom: 28,
+    color: '#2D3748',
+    textAlign: 'center',
   },
   verticallySpaced: {
-    paddingTop: 4,
-    paddingBottom: 4,
-    alignSelf: 'stretch',
+    marginTop: 16,
+    marginBottom: 8,
   },
   mt20: {
     marginTop: 20,
+  },
+  backArrow: {
+    position: 'absolute',
+    left: 10,
+    top: 10,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 8px rgba(22, 31, 41, 0.1)',
+  },
+  backArrowText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 40,
+    color: 'rgb(49, 130, 206)',
   },
 })
