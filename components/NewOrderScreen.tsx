@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Snackbar } from 'react-native-paper';
-import { View, Text, StyleSheet, TextInput, Button, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Button, Alert, KeyboardAvoidingView, Platform, Image, Dimensions } from 'react-native';
 import ClearableTextInput from './ClearableTextInput';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -204,7 +204,18 @@ const NewOrderScreen = () => {
       style={[styles.container, { justifyContent: 'flex-start' }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={{ width: '100%', maxWidth: 400, alignSelf: 'center', marginTop: 24 }}>
+      <View
+        style={[
+          { width: '100%', maxWidth: 400, alignSelf: 'center', marginTop: 24 },
+          Platform.OS !== 'web' && {
+            flex: 1,
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: 18,
+            minHeight: 320,
+          },
+        ]}
+      >
         <Text style={styles.title}>Create New Order</Text>
         {React.useMemo(() => (
           <GooglePlacesAutocomplete
@@ -233,8 +244,15 @@ const NewOrderScreen = () => {
           }}
           styles={{
             textInput: [styles.input, pickupError ? { borderColor: '#E53E3E' } : {}],
-            container: { position: 'relative', width: '100%', maxWidth: 400, marginBottom: 0 },
-            listView: { backgroundColor: '#fff',minHeight: 50, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
+            container: [
+              { width: '100%', maxWidth: 400 },
+              Platform.OS !== 'web' && { flex: 1, marginBottom: 12 },
+            ],
+            listView: [
+  { backgroundColor: '#fff', minHeight: 50, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5, zIndex: 10 },
+  Platform.OS !== 'web' && { maxHeight: Dimensions.get('window').height * 0.5 },
+  Platform.OS === 'web' && { maxHeight: 220 }
+],
           }}
           textInputProps={{
             value: pickup,
@@ -279,8 +297,15 @@ const NewOrderScreen = () => {
           }}
           styles={{
             textInput: [styles.input, deliveryError ? { borderColor: '#E53E3E' } : {}],
-            container: { width: '100%', maxWidth: 400, marginBottom: 0, marginTop: 'inherit', position: 'relative' },
-            listView: { backgroundColor: '#fff', minHeight: 50, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
+            container: [
+              { width: '100%', maxWidth: 400 },
+              Platform.OS !== 'web' && { flex: 1, marginBottom: 12 },
+            ],
+            listView: [
+              { backgroundColor: '#fff', minHeight: 50, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5, zIndex: 10 },
+              Platform.OS !== 'web' && { maxHeight: Dimensions.get('window').height * 0.5 },
+              Platform.OS === 'web' && { maxHeight: 220 }
+            ],
           }}
           textInputProps={{
             value: delivery,
@@ -342,7 +367,7 @@ const NewOrderScreen = () => {
       )}
 
       <ClearableTextInput
-        style={[styles.input, itemsError ? { borderColor: '#E53E3E' } : {}, { marginTop: 'inherit'}]}
+        style={[styles.input, itemsError ? { borderColor: '#E53E3E' } : {}]}
         placeholder="Items (comma separated)"
         value={items}
         onChangeText={text => {
