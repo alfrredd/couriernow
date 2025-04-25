@@ -14,8 +14,10 @@ import * as Notifications from 'expo-notifications';
 
 // Register for push notifications and get Expo token
 async function registerForPushNotificationsAsync() {
+  console.log('[Push] Starting registration');
   let token;
   if (Platform.OS === 'android') {
+    console.log('[Push] Setting Android notification channel');
     await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
       importance: Notifications.AndroidImportance.MAX,
@@ -24,22 +26,31 @@ async function registerForPushNotificationsAsync() {
     });
   }
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  console.log('[Push] Existing permission status:', existingStatus);
   let finalStatus = existingStatus;
   if (existingStatus !== 'granted') {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
+    console.log('[Push] Requested permission, final status:', finalStatus);
   }
   if (finalStatus !== 'granted') {
+    console.log('[Push] Permission not granted');
     Alert.alert('Failed to get push token for push notification!');
     return null;
   }
-  token = (await Notifications.getExpoPushTokenAsync()).data;
+  try {
+    token = (await Notifications.getExpoPushTokenAsync()).data;
+    console.log('[Push] Got Expo push token:', token);
+  } catch (err) {
+    console.log('[Push] Error getting Expo push token:', err);
+  }
   return token;
 }
 
 const Stack = createStackNavigator();
 
 export default function App() {
+  console.log('App component rendered');
   const [session, setSession] = useState<Session | null>(null)
   const [showAuth, setShowAuth] = useState(false);
 
@@ -56,11 +67,23 @@ export default function App() {
 
   // Register push token and set up notification listener when session changes
   useEffect(() => {
-    let notificationListener: Notifications.Subscription | undefined;
+    console.log('Session changed:', session);
+    let notificationListener: Notifications.EventSubscription | undefined;
     if (session && session.user) {
       registerForPushNotificationsAsync().then(token => {
+        console.log('Expo Push Token:', token);
         if (token) {
-          supabase.from('users').update({ expo_push_token: token }).eq('id', session.user.id);
+          supabase
+            .from('users')
+            .update({ expo_push_token: token })
+            .eq('id', session.user.id)
+            .then(({ error }) => {
+              if (error) {
+                console.error('Failed to update push token:', error);
+              } else {
+                console.log('Push token saved to DB');
+              }
+            });
         }
       });
       // Listen for foreground notifications

@@ -12,7 +12,8 @@ if (Platform.OS === 'web') {
   supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
   supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 } else {
-  const extra = Constants.expoConfig?.extra || Constants.manifest?.extra || {};
+  const expoConfig = Constants.expoConfig as any;
+  const extra = (expoConfig?.extra as Record<string, any> | undefined) || {};
   supabaseUrl = extra.SUPABASE_URL || '';
   supabaseAnonKey = extra.SUPABASE_ANON_KEY || '';
 }
