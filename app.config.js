@@ -6,7 +6,7 @@ export default ({ config }) => ({
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#ffffff"
     },
-    googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./android/app/google-services.json"
+    ...(process.env.GOOGLE_SERVICES_JSON ? { googleServicesFile: process.env.GOOGLE_SERVICES_JSON } : {}),
   },
   extra: {
     SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
