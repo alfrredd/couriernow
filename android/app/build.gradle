@@ -80,6 +80,8 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+apply plugin: 'com.google.gms.google-services'
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
