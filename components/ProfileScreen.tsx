@@ -167,8 +167,7 @@ const ProfileScreen = () => {
     );
   }
 
-  // Add extra top padding for mobile
-  const extraTopPadding = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 12 : 24;
+  
 
   return (
     <SafeAreaView style={styles.container}>
@@ -183,7 +182,7 @@ const ProfileScreen = () => {
       </View>
       <TouchableOpacity
         onPress={handleLogout}
-        style={{ position: 'absolute', top: extraTopPadding, right: 24, zIndex: 100 }}
+        style={{ position: 'absolute', top: 8, right: 24, zIndex: 100 }}
         accessibilityLabel="Log Out"
       >
         <View style={{ backgroundColor: '#3182CE', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 18 }}>

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Alert, StyleSheet, View, Text, BackHandler, Platform, TouchableOpacity } from 'react-native'
 import { useNavigation, NavigationProp } from '@react-navigation/native'
 import { supabase } from '../lib/supabase'
-import { Button, Input } from '@rneui/themed'
+import { Button, Input, Icon } from '@rneui/themed'
 
 type RootStackParamList = {
   Dashboard: undefined;
@@ -14,6 +14,18 @@ type AuthProps = {
 };
 
 export default function Auth({ setShowAuth }: AuthProps) {
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const emailInputRef = useRef<any>(null);
+  const passwordInputRef = useRef<any>(null);
+  const nameInputRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (emailInputRef.current && typeof emailInputRef.current.focus === 'function') {
+      emailInputRef.current.focus();
+    }
+  }, []);
+
   useEffect(() => {
     if (Platform.OS === 'android') {
       const backAction = () => {
@@ -56,7 +68,11 @@ export default function Auth({ setShowAuth }: AuthProps) {
       password: password,
     })
 
-    if (error) Alert.alert(error.message)
+    if (error) {
+      setSnackbarMessage(error.message);
+      setSnackbarVisible(true);
+      if (Platform.OS !== 'web') Alert.alert(error.message);
+    }
     setLoading(false)
   }
 
@@ -101,8 +117,10 @@ export default function Auth({ setShowAuth }: AuthProps) {
     })
 
     if (error) {
-      Alert.alert(error.message)
-      setLoading(false)
+      setSnackbarMessage(error.message);
+      setSnackbarVisible(true);
+      if (Platform.OS !== 'web') Alert.alert(error.message);
+      setLoading(false);
       return;
     }
 
@@ -127,19 +145,42 @@ export default function Auth({ setShowAuth }: AuthProps) {
       <View style={[styles.verticallySpaced, styles.mt20]}>
         <Input
           label="Email"
-          leftIcon={{ type: 'font-awesome', name: 'envelope' }}
+          leftIcon={
+            <Icon
+              type="font-awesome"
+              name="envelope"
+              {...((Platform.OS === 'web' ? { tabIndex: -1 } : {}) as any)}
+            />
+          }
+          ref={emailInputRef}
           onChangeText={(text) => setEmail(text)}
           value={email}
           placeholder="email@address.com"
           autoCapitalize={'none'}
           errorMessage={emailError}
           inputContainerStyle={emailError ? { borderColor: '#E53E3E' } : {}}
+          autoFocus
+          returnKeyType={showName ? 'next' : 'done'}
+          onSubmitEditing={() => {
+            if (showName) {
+              passwordInputRef.current?.focus();
+            } else {
+              signInWithEmail();
+            }
+          }}
         />
       </View>
       <View style={styles.verticallySpaced}>
         <Input
           label="Password"
-          leftIcon={{ type: 'font-awesome', name: 'lock' }}
+          leftIcon={
+            <Icon
+              type="font-awesome"
+              name="lock"
+              {...((Platform.OS === 'web' ? { tabIndex: -1 } : {}) as any)}
+            />
+          }
+          ref={passwordInputRef}
           onChangeText={(text) => setPassword(text)}
           value={password}
           secureTextEntry={true}
@@ -147,19 +188,36 @@ export default function Auth({ setShowAuth }: AuthProps) {
           autoCapitalize={'none'}
           errorMessage={passwordError}
           inputContainerStyle={passwordError ? { borderColor: '#E53E3E' } : {}}
+          returnKeyType={showName ? 'next' : 'done'}
+          onSubmitEditing={() => {
+            if (showName) {
+              nameInputRef.current?.focus();
+            } else {
+              signInWithEmail();
+            }
+          }}
         />
       </View>
       {showName && (
         <View style={styles.verticallySpaced}>
           <Input
             label="Name"
-            leftIcon={{ type: 'font-awesome', name: 'user' }}
+            leftIcon={
+              <Icon
+                type="font-awesome"
+                name="user"
+                {...((Platform.OS === 'web' ? { tabIndex: -1 } : {}) as any)}
+              />
+            }
+            ref={nameInputRef}
             onChangeText={(text) => setName(text)}
             value={name}
             placeholder="Your Name"
             autoCapitalize={'words'}
             errorMessage={nameError}
             inputContainerStyle={nameError ? { borderColor: '#E53E3E' } : {}}
+            returnKeyType="done"
+            onSubmitEditing={signUpWithEmail}
           />
         </View>
       )}
@@ -169,9 +227,21 @@ export default function Auth({ setShowAuth }: AuthProps) {
       <View style={styles.verticallySpaced}>
         <Button title="Sign up" disabled={loading} onPress={() => signUpWithEmail()} />
       </View>
+      {/* Snackbar for error messages */}
+      {snackbarVisible && (
+        <View style={{ position: 'absolute', bottom: 32, left: 0, right: 0, alignItems: 'center', zIndex: 999 }}>
+          <View style={{ backgroundColor: '#E53E3E', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24, minWidth: 200 }}>
+            <Text style={{ color: 'white', fontSize: 16, textAlign: 'center' }}>{snackbarMessage}</Text>
+            <TouchableOpacity onPress={() => setSnackbarVisible(false)} style={{ marginTop: 8, alignSelf: 'center' }}>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>Dismiss</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   )
 }
+
 
 const styles = StyleSheet.create({
   container: {

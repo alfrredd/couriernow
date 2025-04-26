@@ -5,8 +5,6 @@ import { TextInput as PaperTextInput, ActivityIndicator } from 'react-native-pap
 import ClearableTextInput from './ClearableTextInput';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-
 import { supabase } from '../lib/supabase';
 import { Modal, TouchableOpacity } from 'react-native';
 

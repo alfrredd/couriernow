@@ -121,11 +121,10 @@ const MyOrdersScreen = () => {
     </TouchableOpacity>
   );
 
-  // Add extra top padding for mobile
-  const extraTopPadding = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 12 : Platform.OS === 'ios' ? 24 : 0;
+  
 
   return (
-    <View style={[styles.container, { paddingTop: extraTopPadding }]}>
+    <View style={styles.container}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, ...(Platform.OS === 'web' ? { marginTop: 16 } : {}) }}>
         <View style={{ flex: 1, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
           <Text style={styles.title}>My Orders</Text>

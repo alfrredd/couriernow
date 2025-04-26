@@ -1,0 +1,23 @@
+# Ignore node_modules and build artifacts
+node_modules
+npm-debug.log
+yarn-error.log
+.expo
+.expo-shared
+dist
+build
+android/.gradle
+android/app/build
+ios/build
+web-build
+coverage
+*.tar.gz
+
+# Ignore macOS/Windows/Linux system files
+.DS_Store
+Thumbs.db
+
+# Ignore local environment files
+.env.local
+.env.*
+!.env
