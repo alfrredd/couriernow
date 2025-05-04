@@ -220,7 +220,7 @@ const MyOrdersScreen = () => {
                       onPress={async () => {
                         if (!userId) return;
                         // Update order status
-                        await supabase.from('orders').update({ status: 'Cancelled by User' }).eq('id', selectedOrder.id);
+                        await supabase.from('orders').update({ active: false, status: 'Cancelled by User' }).eq('id', selectedOrder.id);
                         // Insert into orders_changelog
                         const { error: changelogError } = await supabase.from('orders_changelog').insert({
                           order_id: selectedOrder.id,
