@@ -103,9 +103,11 @@ const ProfileScreen = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
+  const [userTelephone, setUserTelephone] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editProfileName, setEditProfileName] = useState('');
+  const [editProfileTelephone, setEditProfileTelephone] = useState('');
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
@@ -119,12 +121,14 @@ const ProfileScreen = () => {
       }
       setUserId(user.id);
       setUserEmail(user.email || '');
-      // Fetch name from users table
-      const { data, error } = await supabase.from('users').select('name').eq('id', user.id).single();
+      // Fetch name and telephone from users table
+      const { data, error } = await supabase.from('users').select('name, telephone').eq('id', user.id).single();
       if (error) {
         setUserName('');
+        setUserTelephone('');
       } else {
         setUserName(data.name || '');
+        setUserTelephone(data.telephone || '');
       }
       setLoading(false);
     };
@@ -140,23 +144,28 @@ const ProfileScreen = () => {
 
   const openEditModal = () => {
     setEditProfileName(userName);
+    setEditProfileTelephone(userTelephone);
     setEditModalVisible(true);
   };
 
   const handleConfirmEdit = async () => {
-    if (!editProfileName.trim()) {
+    if (!editProfileName.trim() || !editProfileTelephone.trim()) {
       setEditModalVisible(false);
       return;
     }
     setUpdating(true);
-    const { error } = await supabase.from('users').update({ name: editProfileName }).eq('id', userId!);
+    const { error } = await supabase.from('users').update({ 
+      name: editProfileName,
+      telephone: editProfileTelephone
+    }).eq('id', userId!);
     setUpdating(false);
     setEditModalVisible(false);
     if (error) {
-      Alert.alert('Failed to update name', error.message);
+      Alert.alert('Failed to update profile', error.message);
       return;
     }
     setUserName(editProfileName);
+    setUserTelephone(editProfileTelephone);
   };
 
   if (loading) {
@@ -167,18 +176,20 @@ const ProfileScreen = () => {
     );
   }
 
-  
-
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{ alignItems: 'center', marginBottom: 32 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={styles.text}>{userName}</Text>
-          <TouchableOpacity onPress={openEditModal} style={{ marginLeft: 8 }}>
-            <Ionicons name="pencil" size={20} color="#3182CE" />
-          </TouchableOpacity>
+      <View style={styles.userInfoCard}>
+        <View style={styles.userInfoContainer}>
+          <Text style={styles.name}>{userName}</Text>
+          {userTelephone && <Text style={styles.telephone}>{userTelephone}</Text>}
+          <Text style={styles.email}>{userEmail}</Text>
         </View>
-        <Text style={{ color: '#4A5568', fontSize: 16 }}>{userEmail}</Text>
+        <TouchableOpacity 
+          onPress={openEditModal} 
+          style={styles.editButton}
+        >
+          <Text style={styles.editButtonText}>Edit Data</Text>
+        </TouchableOpacity>
       </View>
       <TouchableOpacity
         onPress={handleLogout}
@@ -230,19 +241,37 @@ const ProfileScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={{ fontSize: 18, marginBottom: 12 }}>Edit Name</Text>
+            <Text style={{ fontSize: 18, marginBottom: 16 }}>Edit Profile</Text>
             <TextInput
               style={styles.input}
               value={editProfileName}
               onChangeText={setEditProfileName}
-              autoFocus
               placeholder="Your Name"
               autoCapitalize="words"
             />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }}>
-              <Button title="Cancel" color="#A0AEC0" onPress={() => setEditModalVisible(false)} />
-              <View style={{ width: 12 }} />
-              <Button title={updating ? 'Updating...' : 'Confirm Change'} color="#3182CE" onPress={handleConfirmEdit} disabled={updating} />
+            <TextInput
+              style={styles.input}
+              value={editProfileTelephone}
+              onChangeText={setEditProfileTelephone}
+              placeholder="Your Phone Number"
+              keyboardType="phone-pad"
+            />
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleConfirmEdit}
+                disabled={updating}
+              >
+                <Text style={styles.buttonText}>
+                  {updating ? 'Updating...' : 'Save Changes'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -355,13 +384,45 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#fff',
+    padding: 20,
   },
-  text: {
+  userInfoCard: {
+    backgroundColor: '#f0f7ff',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    marginBottom: 20,
+  },
+  userInfoContainer: {
+    marginBottom: 16,
+  },
+  name: {
     fontSize: 22,
     color: '#2D3748',
     fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  telephone: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
+  email: {
+    fontSize: 16,
+    color: '#4A5568',
+  },
+  editButton: {
+    backgroundColor: '#3182CE',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  editButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -375,16 +436,40 @@ const styles = StyleSheet.create({
     padding: 24,
     width: 320,
     boxShadow: '0px 2px 4px rgba(0,0,0,0.2)',
-    elevation: 5,
+    elevation: 4
   },
   input: {
     borderWidth: 1,
-    borderColor: '#CBD5E0',
+    borderColor: '#E2E8F0',
     borderRadius: 8,
     padding: 12,
+    marginBottom: 16,
+    width: '100%',
     fontSize: 16,
-    backgroundColor: '#F7FAFC',
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 24,
+  },
+  cancelButton: {
+    backgroundColor: '#A0AEC0',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  saveButton: {
+    backgroundColor: '#3182CE',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  }
 });
 
 export default ProfileScreen;
