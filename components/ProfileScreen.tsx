@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 
+
 const ProfileScreen = () => {
   const [addresses, setAddresses] = useState<{ name: string; address: string }[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -109,6 +110,10 @@ const ProfileScreen = () => {
   const [editProfileName, setEditProfileName] = useState('');
   const [editProfileTelephone, setEditProfileTelephone] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [supportModalVisible, setSupportModalVisible] = useState(false);
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [editError, setEditError] = useState('');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -149,23 +154,34 @@ const ProfileScreen = () => {
   };
 
   const handleConfirmEdit = async () => {
-    if (!editProfileName.trim() || !editProfileTelephone.trim()) {
-      setEditModalVisible(false);
+    if (!editProfileName.trim()) {
+      setEditError('Name is required');
       return;
     }
+    if (!editProfileTelephone.trim()) {
+      setEditError('Phone number is required');
+      return;
+    }
+
     setUpdating(true);
-    const { error } = await supabase.from('users').update({ 
-      name: editProfileName,
-      telephone: editProfileTelephone
-    }).eq('id', userId!);
-    setUpdating(false);
-    setEditModalVisible(false);
-    if (error) {
-      Alert.alert('Failed to update profile', error.message);
-      return;
+    try {
+      const { error } = await supabase.from('users').update({ 
+        name: editProfileName,
+        telephone: editProfileTelephone
+      }).eq('id', userId!);
+      setUpdating(false);
+      setEditModalVisible(false);
+      setEditError('');
+      if (error) {
+        Alert.alert('Failed to update profile', error.message);
+        return;
+      }
+      setUserName(editProfileName);
+      setUserTelephone(editProfileTelephone);
+    } catch (error) {
+      setUpdating(false);
+      Alert.alert('Failed to update profile', error instanceof Error ? error.message : 'An unexpected error occurred');
     }
-    setUserName(editProfileName);
-    setUserTelephone(editProfileTelephone);
   };
 
   if (loading) {
@@ -178,28 +194,48 @@ const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.topSection}>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            onPress={() => setSupportModalVisible(true)}
+            style={styles.supportButton}
+          >
+            <Text style={styles.supportButtonText}>Contact Support</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleLogout}
+            accessibilityLabel="Log Out"
+          >
+            <View style={styles.logoutButton}>
+              <Text style={styles.logoutButtonText}>Log Out</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
       <View style={styles.userInfoCard}>
         <View style={styles.userInfoContainer}>
-          <Text style={styles.name}>{userName}</Text>
-          {userTelephone && <Text style={styles.telephone}>{userTelephone}</Text>}
-          <Text style={styles.email}>{userEmail}</Text>
+          <View style={styles.iconTextContainer}>
+            <Ionicons name="person" size={20} color="#3182CE" style={{ marginRight: 8 }} />
+            <Text style={styles.name}>{userName}</Text>
+          </View>
+          {userTelephone && (
+            <View style={styles.iconTextContainer}>
+              <Ionicons name="call" size={20} color="#3182CE" style={{ marginRight: 8 }} />
+              <Text style={styles.telephone}>{userTelephone}</Text>
+            </View>
+          )}
+          <View style={styles.iconTextContainer}>
+            <Ionicons name="mail" size={20} color="#3182CE" style={{ marginRight: 8 }} />
+            <Text style={styles.email}>{userEmail}</Text>
+          </View>
         </View>
         <TouchableOpacity 
           onPress={openEditModal} 
           style={styles.editButton}
         >
-          <Text style={styles.editButtonText}>Edit Data</Text>
+          <Text style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        onPress={handleLogout}
-        style={{ position: 'absolute', top: 8, right: 24, zIndex: 100 }}
-        accessibilityLabel="Log Out"
-      >
-        <View style={{ backgroundColor: '#3182CE', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 18 }}>
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Log Out</Text>
-        </View>
-      </TouchableOpacity>
       {/* My Addresses Section */}
       <View style={{ marginTop: 32, width: '80%', alignItems: 'stretch' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
@@ -234,6 +270,55 @@ const ProfileScreen = () => {
         )}
       </View>
       <Modal
+        visible={supportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSupportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={{ fontSize: 18, marginBottom: 16 }}>Contact Support</Text>
+            <TextInput
+              style={styles.input}
+              value={supportSubject}
+              onChangeText={setSupportSubject}
+              placeholder="Subject"
+            />
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={supportMessage}
+              onChangeText={setSupportMessage}
+              placeholder="Write your message"
+              multiline
+              numberOfLines={4}
+            />
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setSupportModalVisible(false);
+                  setSupportSubject('');
+                  setSupportMessage('');
+                }}
+              >
+                <Text style={styles.buttonText}>Close</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={() => {
+                  // TODO: Implement support message sending
+                  setSupportModalVisible(false);
+                  setSupportSubject('');
+                  setSupportMessage('');
+                }}
+              >
+                <Text style={styles.buttonText}>Send</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
         visible={editModalVisible}
         transparent
         animationType="fade"
@@ -250,12 +335,18 @@ const ProfileScreen = () => {
               autoCapitalize="words"
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { marginBottom: 2 }]}
               value={editProfileTelephone}
               onChangeText={setEditProfileTelephone}
               placeholder="Your Phone Number"
               keyboardType="phone-pad"
             />
+            <Text style={styles.telephoneNote}>
+              Couriers will contact you using this number
+            </Text>
+            {editError && (
+              <Text style={styles.errorText}>{editError}</Text>
+            )}
             <View style={styles.buttonContainer}>
               <TouchableOpacity
                 style={styles.cancelButton}
@@ -387,6 +478,65 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 20,
   },
+  topSection: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    width: '100%',
+    padding: 20,
+  },
+  contentSection: {
+    flex: 1,
+    padding: 20,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoutButtonContainer: {
+    marginLeft: 16,
+  },
+  logoutButton: {
+    backgroundColor: '#3182CE',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  supportButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#3182CE',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    marginRight: 16,
+  },
+  errorText: {
+    color: '#E53E3E',
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  telephoneNote: {
+    color: '#718096',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  supportButtonText: {
+    color: '#3182CE',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
   userInfoCard: {
     backgroundColor: '#f0f7ff',
     borderRadius: 16,
@@ -399,19 +549,24 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   name: {
-    fontSize: 22,
+    fontSize: 20,
     color: '#2D3748',
     fontWeight: 'bold',
     marginBottom: 8,
   },
   telephone: {
     fontSize: 16,
-    color: '#666',
+    color: '#2D3748',
     marginBottom: 8,
   },
   email: {
     fontSize: 16,
-    color: '#4A5568',
+    color: '#2D3748',
+  },
+  iconTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   editButton: {
     backgroundColor: '#3182CE',
