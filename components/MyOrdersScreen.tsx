@@ -102,7 +102,13 @@ const MyOrdersScreen = () => {
 
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity
-      style={styles.orderItem}
+      style={[styles.orderItem, {
+        backgroundColor: item.status === 'Delivered' ? '#f0f7ff' : 
+                       item.status === 'Cancelled' ? '#f7fafc' : 
+                       item.status === 'Awaiting Courier' ? '#f0fff4' : 
+                       '#f7fafc',
+        borderWidth: 1,
+      }]}
       onPress={() => {
         setSelectedOrder(item);
         setModalVisible(true);
@@ -326,7 +332,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
+    borderWidth: 5,
     borderColor: '#CBD5E0',
   },
   orderId: {

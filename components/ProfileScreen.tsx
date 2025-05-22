@@ -238,7 +238,7 @@ const ProfileScreen = () => {
       </View>
       {/* My Addresses Section */}
       <View style={{ marginTop: 32, width: '80%', alignItems: 'stretch' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <Text style={{ fontSize: 20, fontWeight: 'bold', marginRight: 16 }}>My Addresses</Text>
           <TouchableOpacity
             onPress={handleAddNew}
