@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Platform, StatusBar } from 'react-native';
 import { View, Text, StyleSheet, Button, Alert, Modal, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -17,25 +17,26 @@ const ProfileScreen = () => {
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [addressError, setAddressError] = useState('');
 
+  const fetchAddresses = async () => {
+    setLoadingAddresses(true);
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      setLoadingAddresses(false);
+      return;
+    }
+    const { data, error } = await supabase.from('users').select('addresses').eq('id', user.id).single();
+    if (!error && data && Array.isArray(data.addresses)) {
+      // Parse each address string as JSON
+      const parsed = data.addresses
+        .slice(0, 5)
+        .map((addr: any) => (typeof addr === 'string' ? JSON.parse(addr) : addr));
+      setAddresses(parsed);
+    }
+    setLoadingAddresses(false);
+  };
+
   // Fetch addresses on mount
   useEffect(() => {
-    const fetchAddresses = async () => {
-      setLoadingAddresses(true);
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        setLoadingAddresses(false);
-        return;
-      }
-      const { data, error } = await supabase.from('users').select('addresses').eq('id', user.id).single();
-      if (!error && data && Array.isArray(data.addresses)) {
-        // Parse each address string as JSON
-        const parsed = data.addresses
-          .slice(0, 5)
-          .map((addr: any) => (typeof addr === 'string' ? JSON.parse(addr) : addr));
-        setAddresses(parsed);
-      }
-      setLoadingAddresses(false);
-    };
     fetchAddresses();
   }, []);
 
@@ -115,28 +116,38 @@ const ProfileScreen = () => {
   const [supportMessage, setSupportMessage] = useState('');
   const [editError, setEditError] = useState('');
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true);
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        setLoading(false);
-        Alert.alert('Error', 'Could not get user info.');
-        return;
-      }
-      setUserId(user.id);
-      setUserEmail(user.email || '');
-      // Fetch name and telephone from users table
-      const { data, error } = await supabase.from('users').select('name, telephone').eq('id', user.id).single();
-      if (error) {
-        setUserName('');
-        setUserTelephone('');
-      } else {
-        setUserName(data.name || '');
-        setUserTelephone(data.telephone || '');
-      }
+  // Refresh when tab is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchProfile();
+      fetchAddresses();
+    }, [])
+  );
+
+  const fetchProfile = async () => {
+    setLoading(true);
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       setLoading(false);
-    };
+      Alert.alert('Error', 'Could not get user info.');
+      return;
+    }
+    setUserId(user.id);
+    setUserEmail(user.email || '');
+    // Fetch name and telephone from users table
+    const { data, error } = await supabase.from('users').select('name, telephone').eq('id', user.id).single();
+    if (error) {
+      console.error('Error fetching profile:', error);
+      setUserName('');
+      setUserTelephone('');
+    } else {
+      setUserName(data.name || '');
+      setUserTelephone(data.telephone || '');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchProfile();
   }, []);
 
@@ -148,27 +159,38 @@ const ProfileScreen = () => {
   };
 
   const openEditModal = () => {
-    setEditProfileName(userName);
-    setEditProfileTelephone(userTelephone);
+    setEditProfileName(userName || '');
+    setEditProfileTelephone(userTelephone || '');
     setEditModalVisible(true);
   };
 
   const handleConfirmEdit = async () => {
-    if (!editProfileName.trim()) {
+    if (!userId) {
+      setEditError('User ID not found');
+      return;
+    }
+
+    // Convert to strings if they're not already
+    const name = String(editProfileName || '');
+    const telephone = String(editProfileTelephone || '');
+
+    if (!name.trim()) {
       setEditError('Name is required');
       return;
     }
-    if (!editProfileTelephone.trim()) {
+    if (!telephone.trim()) {
       setEditError('Phone number is required');
       return;
     }
 
+    console.log('Saving telephone:', telephone);
+    
     setUpdating(true);
     try {
       const { error } = await supabase.from('users').update({ 
-        name: editProfileName,
-        telephone: editProfileTelephone
-      }).eq('id', userId!);
+        name: name,
+        telephone: telephone
+      }).eq('id', userId);
       setUpdating(false);
       setEditModalVisible(false);
       setEditError('');
@@ -176,8 +198,9 @@ const ProfileScreen = () => {
         Alert.alert('Failed to update profile', error.message);
         return;
       }
-      setUserName(editProfileName);
-      setUserTelephone(editProfileTelephone);
+      setUserName(name);
+      setUserTelephone(telephone);
+      console.log('Successfully saved telephone:', telephone);
     } catch (error) {
       setUpdating(false);
       Alert.alert('Failed to update profile', error instanceof Error ? error.message : 'An unexpected error occurred');
@@ -191,6 +214,8 @@ const ProfileScreen = () => {
       </View>
     );
   }
+
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -451,18 +476,20 @@ const ProfileScreen = () => {
             />
             {addressError ? <Text style={{ color: '#E53E3E', marginTop: 8 }}>{addressError}</Text> : null}
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end',alignItems: 'center', marginTop: 18 }}>
-              <TouchableOpacity
-                onPress={() => setShowNewModal(false)}
-                style={{ marginRight: 12 }}
-              >
-                <Text style={{ color: '#3182CE', fontWeight: 'bold', fontSize: 16, textAlignVertical: 'center', textAlign: 'center' }}>Close</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleSaveNew}
-                style={{ backgroundColor: '#3182CE', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 8, justifyContent: 'center', alignItems: 'center', height: 40, minWidth: 70 }}
-              >
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, textAlignVertical: 'center', textAlign: 'center' }}>Save</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity
+                  onPress={() => setShowNewModal(false)}
+                  style={{ marginRight: 12 }}
+                >
+                  <Text style={{ color: '#3182CE', fontWeight: 'bold', fontSize: 16 }}>Close</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleSaveNew}
+                  style={{ backgroundColor: '#3182CE', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 8 }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>

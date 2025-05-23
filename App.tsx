@@ -1,6 +1,5 @@
 import 'react-native-url-polyfill/auto'
 import 'react-native-get-random-values'
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import Auth from './components/Auth'
@@ -67,7 +66,6 @@ export default function App() {
 
   // Register push token and set up notification listener when session changes
   useEffect(() => {
-    console.log('Session changed:', session);
     let notificationListener: Notifications.EventSubscription | undefined;
     if (session && session.user) {
       registerForPushNotificationsAsync().then(token => {
