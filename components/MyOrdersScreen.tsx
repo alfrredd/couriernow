@@ -104,9 +104,13 @@ const MyOrdersScreen = () => {
     <TouchableOpacity
       style={[styles.orderItem, {
         backgroundColor: item.status === 'Delivered' ? '#f0f7ff' : 
-                       item.status === 'Cancelled' ? '#f7fafc' : 
+                       item.status === 'Cancelled by User' ? '#eeeeee' : 
+                       item.status === 'Cancelled by Courier' ? '#eeeeee' : 
+                       item.status === 'Cancelled by Support' ? '#eeeeee' : 
                        item.status === 'Awaiting Courier' ? '#f0fff4' : 
-                       '#f7fafc',
+                       item.status === 'Accepted by Courier' ? '#e0ffe8' :
+                       item.status === 'Picked Up' ? '#e0ffe8' :
+                       '#eeeeee',
         borderWidth: 1,
       }]}
       onPress={() => {
