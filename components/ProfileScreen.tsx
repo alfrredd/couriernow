@@ -107,14 +107,16 @@ const ProfileScreen = () => {
   const [userName, setUserName] = useState<string>('');
   const [userTelephone, setUserTelephone] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editProfileName, setEditProfileName] = useState('');
-  const [editProfileTelephone, setEditProfileTelephone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editTelephone, setEditTelephone] = useState('');
+  const [emailEditModalVisible, setEmailEditModalVisible] = useState(false);
+  const [nameEditModalVisible, setNameEditModalVisible] = useState(false);
+  const [telephoneEditModalVisible, setTelephoneEditModalVisible] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [editError, setEditError] = useState('');
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
-  const [editError, setEditError] = useState('');
 
   // Refresh when tab is focused
   useFocusEffect(
@@ -158,52 +160,91 @@ const ProfileScreen = () => {
     }
   };
 
-  const openEditModal = () => {
-    setEditProfileName(userName || '');
-    setEditProfileTelephone(userTelephone || '');
-    setEditModalVisible(true);
-  };
-
-  const handleConfirmEdit = async () => {
-    if (!userId) {
-      setEditError('User ID not found');
-      return;
-    }
-
-    // Convert to strings if they're not already
-    const name = String(editProfileName || '');
-    const telephone = String(editProfileTelephone || '');
-
-    if (!name.trim()) {
+  const handleConfirmNameEdit = async () => {
+    if (!editName || !editName.trim()) {
       setEditError('Name is required');
       return;
     }
-    if (!telephone.trim()) {
+
+    setUpdating(true);
+    try {
+      const { error } = await supabase.from('users').update({ 
+        name: editName
+      }).eq('id', userId);
+      
+      if (error) {
+        throw error;
+      }
+
+      setUserName(editName);
+      setNameEditModalVisible(false);
+      setEditError('');
+    } catch (error) {
+      setUpdating(false);
+      Alert.alert('Failed to update name', error instanceof Error ? error.message : 'An unexpected error occurred');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleConfirmTelephoneEdit = async () => {
+    if (!editTelephone || !editTelephone.trim()) {
       setEditError('Phone number is required');
       return;
     }
 
-    console.log('Saving telephone:', telephone);
-    
     setUpdating(true);
     try {
       const { error } = await supabase.from('users').update({ 
-        name: name,
-        telephone: telephone
+        telephone: editTelephone
       }).eq('id', userId);
-      setUpdating(false);
-      setEditModalVisible(false);
-      setEditError('');
+      
       if (error) {
-        Alert.alert('Failed to update profile', error.message);
-        return;
+        throw error;
       }
-      setUserName(name);
-      setUserTelephone(telephone);
-      console.log('Successfully saved telephone:', telephone);
+
+      setUserTelephone(editTelephone);
+      setTelephoneEditModalVisible(false);
+      setEditError('');
     } catch (error) {
       setUpdating(false);
-      Alert.alert('Failed to update profile', error instanceof Error ? error.message : 'An unexpected error occurred');
+      Alert.alert('Failed to update phone number', error instanceof Error ? error.message : 'An unexpected error occurred');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleConfirmEmailEdit = async () => {
+    if (!editEmail || !editEmail.trim()) {
+      setEditError('Email is required');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editEmail)) {
+      setEditError('Please enter a valid email address');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const { error } = await supabase.from('users').update({ 
+        email: editEmail
+      }).eq('id', userId);
+      
+      if (error) {
+        throw error;
+      }
+
+      setUserEmail(editEmail);
+      setEmailEditModalVisible(false);
+      setEditError('');
+    } catch (error) {
+      setUpdating(false);
+      Alert.alert('Failed to update email', error instanceof Error ? error.message : 'An unexpected error occurred');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -225,7 +266,7 @@ const ProfileScreen = () => {
             onPress={() => setSupportModalVisible(true)}
             style={styles.supportButton}
           >
-            <Text style={styles.supportButtonText}>Contact Support</Text>
+            <Text style={styles.supportButtonText}>Help</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleLogout}
@@ -240,26 +281,40 @@ const ProfileScreen = () => {
       <View style={styles.userInfoCard}>
         <View style={styles.userInfoContainer}>
           <View style={styles.iconTextContainer}>
-            <Ionicons name="person" size={20} color="#3182CE" style={{ marginRight: 8 }} />
-            <Text style={styles.name}>{userName}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="person" size={20} color="#3182CE" style={{ marginRight: 8 }} />
+              <Text style={styles.name}>{userName}</Text>
+            </View>
           </View>
           {userTelephone && (
             <View style={styles.iconTextContainer}>
-              <Ionicons name="call" size={20} color="#3182CE" style={{ marginRight: 8 }} />
-              <Text style={styles.telephone}>{userTelephone}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setEditTelephone(userTelephone || '');
+                  setTelephoneEditModalVisible(true);
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="call" size={20} color="#3182CE" style={{ marginRight: 8 }} />
+                  <Text style={styles.telephone}>{userTelephone}</Text>
+                </View>
+              </TouchableOpacity>
             </View>
           )}
-          <View style={styles.iconTextContainer}>
-            <Ionicons name="mail" size={20} color="#3182CE" style={{ marginRight: 8 }} />
-            <Text style={styles.email}>{userEmail}</Text>
+          <View style={[styles.iconTextContainer, { flexDirection: 'row', alignItems: 'center' }]}>
+            <TouchableOpacity
+              onPress={() => {
+                setEditEmail(userEmail || '');
+                setEmailEditModalVisible(true);
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="mail" size={20} color="#3182CE" style={{ marginRight: 8 }} />
+                <Text style={styles.email}>{userEmail}</Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
-        <TouchableOpacity 
-          onPress={openEditModal} 
-          style={styles.editButton}
-        >
-          <Text style={styles.editButtonText}>Edit</Text>
-        </TouchableOpacity>
       </View>
       {/* My Addresses Section */}
       <View style={{ marginTop: 32, width: '80%', alignItems: 'stretch' }}>
@@ -343,28 +398,81 @@ const ProfileScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Name Edit Modal */}
       <Modal
-        visible={editModalVisible}
+        visible={nameEditModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setEditModalVisible(false)}
+        onRequestClose={() => setNameEditModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={{ fontSize: 18, marginBottom: 16 }}>Edit Profile</Text>
+            <Text style={{ fontSize: 18, marginBottom: 16 }}>Edit Name</Text>
+            <Text style={{ marginBottom: 8, color: '#666' }}>Current Name:</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: '#f5f5f5', marginBottom: 16 }]}
+              value={userName}
+              editable={false}
+            />
+            <Text style={{ marginBottom: 8, color: '#666' }}>New Name:</Text>
             <TextInput
               style={styles.input}
-              value={editProfileName}
-              onChangeText={setEditProfileName}
-              placeholder="Your Name"
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="Enter new name"
               autoCapitalize="words"
+              autoFocus
             />
+            {editError && (
+              <Text style={styles.errorText}>{editError}</Text>
+            )}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setNameEditModalVisible(false)}
+              >
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleConfirmNameEdit}
+                disabled={updating}
+              >
+                <Text style={styles.buttonText}>
+                  {updating ? 'Updating...' : 'Save'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Telephone Edit Modal */}
+      <Modal
+        visible={telephoneEditModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTelephoneEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={{ fontSize: 18, marginBottom: 16 }}>Edit Phone Number</Text>
+            <Text style={{ marginBottom: 8, color: '#666' }}>Current Phone Number:</Text>
             <TextInput
-              style={[styles.input, { marginBottom: 2 }]}
-              value={editProfileTelephone}
-              onChangeText={setEditProfileTelephone}
-              placeholder="Your Phone Number"
+              style={[styles.input, { backgroundColor: '#f5f5f5', marginBottom: 16 }]}
+              value={userTelephone}
+              editable={false}
+            />
+            <Text style={{ marginBottom: 8, color: '#666' }}>New Phone Number:</Text>
+            <TextInput
+              style={styles.input}
+              value={editTelephone}
+              onChangeText={setEditTelephone}
+              placeholder="Enter new phone number"
               keyboardType="phone-pad"
+              autoCapitalize="none"
+              autoFocus
             />
             <Text style={styles.telephoneNote}>
               Couriers will contact you using this number
@@ -375,17 +483,67 @@ const ProfileScreen = () => {
             <View style={styles.buttonContainer}>
               <TouchableOpacity
                 style={styles.cancelButton}
-                onPress={() => setEditModalVisible(false)}
+                onPress={() => setTelephoneEditModalVisible(false)}
               >
                 <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.saveButton}
-                onPress={handleConfirmEdit}
+                onPress={handleConfirmTelephoneEdit}
                 disabled={updating}
               >
                 <Text style={styles.buttonText}>
-                  {updating ? 'Updating...' : 'Save Changes'}
+                  {updating ? 'Updating...' : 'Save'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Email Edit Modal */}
+      <Modal
+        visible={emailEditModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEmailEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={{ fontSize: 18, marginBottom: 16 }}>Edit Email</Text>
+            <Text style={{ marginBottom: 8, color: '#666' }}>Current Email:</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: '#f5f5f5', marginBottom: 16 }]}
+              value={userEmail}
+              editable={false}
+            />
+            <Text style={{ marginBottom: 8, color: '#666' }}>New Email:</Text>
+            <TextInput
+              style={styles.input}
+              value={editEmail}
+              onChangeText={setEditEmail}
+              placeholder="Enter new email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoFocus
+            />
+            {editError && (
+              <Text style={styles.errorText}>{editError}</Text>
+            )}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setEmailEditModalVisible(false)}
+              >
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleConfirmEmailEdit}
+                disabled={updating}
+              >
+                <Text style={styles.buttonText}>
+                  {updating ? 'Updating...' : 'Save'}
                 </Text>
               </TouchableOpacity>
             </View>
