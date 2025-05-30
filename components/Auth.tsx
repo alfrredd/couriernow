@@ -6,7 +6,6 @@ import { Button, Input, Icon } from '@rneui/themed'
 
 type RootStackParamList = {
   Dashboard: undefined;
-  // add other routes here if needed
 };
 
 type AuthProps = {
